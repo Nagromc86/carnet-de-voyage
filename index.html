@@ -763,6 +763,7 @@ svg{flex:none}
 .note{margin:0;font-size:.92rem;white-space:pre-wrap;overflow-wrap:anywhere}
 .ev.mini{background:transparent;border-style:dashed;padding:9px 12px}
 .ev.mini h4{font-size:.95rem;font-weight:500}
+.adds{display:flex;flex-wrap:wrap;gap:4px 18px}
 .addday{align-self:flex-start;background:none;border:0;color:var(--accent);font-weight:600;padding:4px 0;font-size:.92rem}
 .emptyday{color:var(--muted);font-size:.9rem;margin:0;padding-left:2px}
 .leg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-left:26px;padding:2px 0 2px 26px;border-left:2px dotted var(--line);font-family:var(--mono);font-size:.78rem;color:var(--muted)}
@@ -863,7 +864,7 @@ a.act{color:var(--ink)}
 .form .full{grid-column:1/-1}
 .fld{display:flex;flex-direction:column;gap:4px;min-width:0}
 .fld>label,.lbl{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
-.fld input,.fld textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 11px;width:100%;min-height:44px}
+.fld input,.fld textarea,.fld select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 11px;width:100%;min-height:44px}
 .fld textarea{min-height:88px;resize:vertical}
 .hint{font-size:.78rem;color:var(--muted)}
 .err{color:var(--danger);font-size:.9rem;margin:0}
@@ -1031,7 +1032,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var KEY={flight:'flights',stay:'stays',act:'activities',info:'infos'};
+var KEY={flight:'flights',stay:'stays',act:'activities',back:'activities',info:'infos'};
 var IMG_TYPES=['image/jpeg','image/png','image/webp','image/gif'];
 
 /* ---------- state ---------- */
@@ -1104,7 +1105,9 @@ function coords(link){
   var m=/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/.exec(link)||/[?&](?:q|query|ll|destination|daddr)=(-?\d{1,2}\.\d+)(?:,|%2C)\s*(-?\d{1,3}\.\d+)/.exec(link)||/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/.exec(link);
   return m?{lat:+m[1],lng:+m[2]}:null;
 }
+function stayOf(a){return a&&a.stayId&&S.trip?S.trip.stays.filter(function(x){return x.id===a.stayId})[0]||null:null}
 function place(kind,it){
+  if(it&&it.stayId){var st=stayOf(it);return st?place('stay',st):null}
   if(kind==='flight')return it.from?{name:it.from,addr:'',link:it.maps,geo:it.geo}:null;
   if(kind==='stay')return {name:it.name,addr:it.address,link:it.maps,geo:it.geo};
   if(kind==='act')return (it.place||it.address||it.maps)?{name:it.place||'',addr:it.address,link:it.maps,geo:it.geo}:null;
@@ -1129,6 +1132,7 @@ function geoQuery(kind,it,second){
   var dest=S.trip.destination||'';
   if(kind==='flight'){var a=second?it.to:it.from;if(!a)return '';return a.replace(/\(([A-Z]{3})\)/,'').replace(/\s+/g,' ').trim()+' airport'}
   if(kind==='stay')return it.address||[it.name,dest].filter(Boolean).join(', ');
+  if(kind==='act'&&it.stayId)return '';
   if(kind==='act'){if(it.address)return (it.place?it.place+', ':'')+it.address;return it.place?it.place+(dest?', '+dest:''):''}
   return '';
 }
@@ -1214,7 +1218,7 @@ function legHtml(a,b,fromLabel){
 /* ---------- day sequences (shared by programme and map) ---------- */
 function events(t){
   var ev=[];
-  t.activities.forEach(function(a){ev.push({date:a.date||'',time:a.start||'',kind:'act',it:a,geo:a.geo})});
+  t.activities.forEach(function(a){var st=stayOf(a);ev.push({date:a.date||'',time:a.start||'',kind:'act',it:a,geo:st?st.geo:a.geo,stay:st})});
   t.flights.forEach(function(f){
     if(f.dep)ev.push({date:dpart(f.dep),time:tpart(f.dep),kind:'dep',it:f,geo:f.geo});
     if(f.arr)ev.push({date:dpart(f.arr),time:tpart(f.arr),kind:'arr',it:f,geo:f.geo2});
@@ -1235,13 +1239,13 @@ function daySeq(t,d,ev){
     if(e.kind==='out')return;
     var last=seq[seq.length-1];
     if(last&&last.geo.lat===e.geo.lat&&last.geo.lng===e.geo.lng)return;
-    seq.push({e:e,it:e.it,geo:e.geo,label:evLabel(e)});
+    seq.push({e:e,it:e.stay||e.it,geo:e.geo,label:evLabel(e)});
   });
   return seq;
 }
 function evLabel(e){
   var it=e.it;
-  if(e.kind==='act')return it.title||it.place||'Activité';
+  if(e.kind==='act')return e.stay?'Retour · '+(e.stay.name||'logement'):(it.title||it.place||'Activité');
   if(e.kind==='dep')return 'Aéroport · '+(it.from||'départ');
   if(e.kind==='arr')return 'Aéroport · '+(it.to||'arrivée');
   return it.name||'Logement';
@@ -1441,12 +1445,17 @@ function actions(kind,it){
     if(u)h+='<a class="act" href="'+esc(u)+'" target="_blank" rel="noopener">'+IC.car+'Uber</a>';
   }
   (it.files||[]).forEach(function(f){h+=fileChip(f)});
-  h+='<button type="button" class="act ghost" data-attach="'+kind+':'+esc(it.id)+'">'+IC.plus+'PDF</button>';
+  if(kind!=='back')h+='<button type="button" class="act ghost" data-attach="'+kind+':'+esc(it.id)+'">'+IC.plus+'PDF</button>';
   h+='<button type="button" class="act ghost" data-edit="'+kind+':'+esc(it.id)+'">Modifier</button>';
   return h+'</div>';
 }
 function evHtml(e){
   var it=e.it,time='<div class="time">'+esc(e.time||'—')+'</div>';
+  if(e.kind==='act'&&it.stayId){
+    var st=e.stay;
+    return '<article class="ev"><div class="time">'+esc(it.start||'—')+(it.end?'<small>'+esc(it.end)+'</small>':'')+'</div><div class="body"><span class="k">Logement · passage</span>'+
+      '<h4>Retour à '+esc(st?(st.name||'mon logement'):'un logement supprimé')+'</h4>'+(st&&st.address?'<p class="where">'+esc(st.address)+'</p>':'')+(it.notes?'<p class="note">'+esc(it.notes)+'</p>':'')+actions('back',it)+'</div></article>';
+  }
   if(e.kind==='act'){
     var where=[it.place,it.address].filter(Boolean).join(' · ');
     return '<article class="ev"><div class="time">'+esc(it.start||'—')+(it.end?'<small>'+esc(it.end)+'</small>':'')+'</div><div class="body">'+
@@ -1491,7 +1500,7 @@ function viewProg(t){
       if(lg)h+=legHtml(lg.a.geo,lg.b.geo,lg.a.base?lg.a.label:'');
       h+=evHtml(e);
     });
-    h+='<button type="button" class="addday" data-add="act" data-date="'+d+'">+ Ajouter une activité ce jour-là</button></section>';
+    h+='<div class="adds"><button type="button" class="addday" data-add="act" data-date="'+d+'">+ Activité</button>'+(t.stays.length?'<button type="button" class="addday" data-add="back" data-date="'+d+'">+ Retour au logement</button>':'')+'</div></section>';
   });
   var und=ev.filter(function(e){return !isDate(e.date)});
   if(und.length){h+='<section class="day"><div class="dayhead"><span class="dnum"></span><h3>Sans date</h3></div>';und.forEach(function(e){h+=evHtml(e)});h+='</section>'}
@@ -1575,7 +1584,7 @@ function viewMap(t){
     if(!seq.length)h+='<p class="unplaced">Aucune étape placée sur la carte ce jour-là.</p>';
     seq.forEach(function(s,i){
       if(i>0&&!skipLeg(seq[i-1],s))h+=legHtml(seq[i-1].geo,s.geo,'');
-      var cls=s.base||(s.e&&(s.e.kind==='in'))?'stay':(s.e&&(s.e.kind==='dep'||s.e.kind==='arr'))?'air':'';
+      var cls=s.base||(s.e&&(s.e.kind==='in'||s.e.stay))?'stay':(s.e&&(s.e.kind==='dep'||s.e.kind==='arr'))?'air':'';
       h+='<div class="stop"><span class="n '+cls+'">'+(i+1)+'</span><div><h4>'+esc(s.base?'Départ de '+s.label:s.label)+'</h4><p>'+esc(s.e?(s.e.time||'')+(s.e.kind==='act'&&s.it.place?' · '+s.it.place:''):'Logement de la nuit')+'</p></div></div>';
     });
     h+='</div>';
@@ -1587,7 +1596,7 @@ function viewMap(t){
   }
   return h;
 }
-function mkIcon(cls,html){return L.divIcon({className:'',html:'<div class="mk '+cls+'" style="width:28px;height:28px">'+html+'</div>',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-14]})}
+function mkIcon(cls,html){var w=html.length>3&&html.indexOf('<')<0?Math.min(70,14+html.length*7):28;return L.divIcon({className:'',html:'<div class="mk '+cls+'" style="width:'+w+'px;height:28px;'+(w>28?'border-radius:14px;':'')+'">'+html+'</div>',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-14]})}
 function mountMap(){
   var slot=$('#mapslot');if(!slot)return;
   try{loadLib('lib-leaflet','L')}catch(e){slot.outerHTML='<p class="unplaced">Carte indisponible.</p>';return}
@@ -1619,15 +1628,17 @@ function drawMap(){
       if(okGeo(f.geo))mark(f.geo,'mk-air',IC.planeUp.replace('currentColor','#fff'),f.from||'Aéroport',shortDT(f.dep),setterFor(f,'geo'));
       if(okGeo(f.geo2))mark(f.geo2,'mk-air',IC.planeUp.replace('currentColor','#fff'),f.to||'Aéroport',shortDT(f.arr),setterFor(f,'geo2'));
     });
-    t.activities.forEach(function(a){if(okGeo(a.geo))mark(a.geo,'mk-act',idx[a.date]?'J'+idx[a.date]:'•',a.title||'Activité',[a.date?fShort.format(pd(a.date)):'',a.start].filter(Boolean).join(' · '),setterFor(a,'geo'))});
+    t.activities.forEach(function(a){if(!a.stayId&&okGeo(a.geo))mark(a.geo,'mk-act',idx[a.date]?'J'+idx[a.date]:'•',a.title||'Activité',[a.date?fShort.format(pd(a.date)):'',a.start].filter(Boolean).join(' · '),setterFor(a,'geo'))});
     $('#map').style.fontSize='';
     [].forEach.call(document.querySelectorAll('#map .mk-act'),function(e){e.style.fontSize='12px'});
   }else{
     var seq=daySeq(t,S.mapDay,ev),near=nearOnly(seq,function(s){return s.geo},seqAir);
-    seq.forEach(function(s,i){
-      var air=s.e&&(s.e.kind==='dep'||s.e.kind==='arr'),stay=s.base||(s.e&&s.e.kind==='in');
-      var f=s.e&&s.e.kind==='arr'?'geo2':'geo';
-      mark(s.geo,air?'mk-air':stay?'mk-stay':'mk-act',String(i+1),s.label,s.e?s.e.time:'Logement de la nuit',setterFor(s.it,f));
+    var grp={};
+    seq.forEach(function(s,i){var k=s.geo.lat.toFixed(5)+','+s.geo.lng.toFixed(5);(grp[k]=grp[k]||[]).push({s:s,n:i+1})});
+    Object.keys(grp).forEach(function(k){
+      var g=grp[k],s=g[0].s,air=s.e&&(s.e.kind==='dep'||s.e.kind==='arr'),stay=s.base||(s.e&&(s.e.kind==='in'||s.e.stay));
+      var f=s.e&&s.e.kind==='arr'?'geo2':'geo',lab=g.map(function(x){return x.n}).join('·');
+      mark(s.geo,air?'mk-air':stay?'mk-stay':'mk-act',lab,s.base?s.label:s.label,g.map(function(x){return x.n+'. '+(x.s.e?(x.s.e.time||''):'départ')}).join(' · '),setterFor(s.it,f));
     });
     if(near.length>1)L.polyline(near.map(function(s){return[s.geo.lat,s.geo.lng]}),{color:'#0b5d6b',weight:3,opacity:.75,dashArray:'6 8'}).addTo(layer);
     if(near.length&&near.length<seq.length)pts=near.map(function(s){return[s.geo.lat,s.geo.lng]});
@@ -1672,16 +1683,18 @@ var FIELDS={
     ['seat','Siège / bagages','text','ex. 14C, 1 bagage cabine',1],['maps','Lien Google Maps de l\'aéroport de départ','url','Facultatif',1],['notes','Notes','textarea','',1]],
   stay:[['name','Nom','text','ex. Hôtel Lisboa Mar',1],['address','Adresse','text','Rue, ville',1],['maps','Lien Google Maps','url','Colle le lien « Partager » de Google Maps',1,'Facultatif. Avec un lien, le point exact est utilisé pour Maps, Uber et la carte.'],
     ['checkin','Arrivée (check-in)','datetime-local'],['checkout','Départ (check-out)','datetime-local'],['ref','N° de réservation','text'],['phone','Téléphone','tel'],['access','Code d\'accès / Wi-Fi','text','',1],['notes','Notes','textarea','',1]],
+  back:[['stayId','Logement','stay','',1,'Les billets et la réservation restent sur la fiche du logement.'],['date','Jour','date','',1],['start','Arrivée au logement','time'],['end','Nouveau départ','time'],['notes','Notes','textarea','ex. Pause, se changer, récupérer les bagages…',1]],
   act:[['title','Activité','text','ex. Visite du Castelo de São Jorge',1],['date','Jour','date','',1],['start','Début','time'],['end','Fin','time'],
     ['place','Lieu','text','ex. Castelo de São Jorge',1],['address','Adresse','text','Facultatif si le lieu suffit',1],['maps','Lien Google Maps','url','Colle le lien « Partager » de Google Maps',1,'Facultatif. Sans lien, le lieu est cherché à partir du nom et de l\'adresse.'],['notes','Notes','textarea','Réservation, horaires, conseils…',1]],
   info:[['title','Titre','text','ex. Assurance voyage',1],['text','Détails','textarea','Numéros, contacts, références…',1]]
 };
-var TITLES={trip:['Nouveau voyage','Le voyage'],flight:['Nouveau vol','Modifier le vol'],stay:['Nouveau logement','Modifier le logement'],act:['Nouvelle activité','Modifier l\'activité'],info:['Nouvelle info','Modifier l\'info']};
+var TITLES={back:['Retour au logement','Modifier le passage au logement'],trip:['Nouveau voyage','Le voyage'],flight:['Nouveau vol','Modifier le vol'],stay:['Nouveau logement','Modifier le logement'],act:['Nouvelle activité','Modifier l\'activité'],info:['Nouvelle info','Modifier l\'info']};
 var GEO_FIELDS={flight:['from','to','maps'],stay:['name','address','maps'],act:['place','address','maps']};
 function fieldsHtml(kind,d){
   return FIELDS[kind].map(function(f){
     var id='f-'+kind+'-'+f[0],v=d[f[0]]||'';
-    var input=f[2]==='textarea'?'<textarea id="'+id+'" name="'+f[0]+'" placeholder="'+esc(f[3]||'')+'">'+esc(v)+'</textarea>':
+    var input=f[2]==='stay'?'<select id="'+id+'" name="'+f[0]+'">'+S.trip.stays.map(function(st){return '<option value="'+esc(st.id)+'"'+(v===st.id?' selected':'')+'>'+esc(st.name||'Logement')+'</option>'}).join('')+'</select>':
+      f[2]==='textarea'?'<textarea id="'+id+'" name="'+f[0]+'" placeholder="'+esc(f[3]||'')+'">'+esc(v)+'</textarea>':
       '<input id="'+id+'" name="'+f[0]+'" type="'+f[2]+'" value="'+esc(v)+'" placeholder="'+esc(f[3]||'')+'"'+(f[2]==='url'?' inputmode="url"':'')+'>';
     return '<div class="fld'+(f[4]?' full':'')+'"><label for="'+id+'">'+esc(f[1])+'</label>'+input+(f[5]?'<span class="hint">'+esc(f[5])+'</span>':'')+'</div>';
   }).join('');
@@ -1725,7 +1738,7 @@ function renderSheet(){
     var isNew=!sheet.id&&k!=='trip';
     h+='<h2 id="sh-t">'+TITLES[k][isNew?0:1]+'</h2><form class="form" id="sf">'+fieldsHtml(k,sheet.draft);
     if(k==='trip')h+=bannerPicker(sheet.draft);
-    else{
+    else if(k!=='back'){
       h+='<div class="fld full"><span class="lbl">Billets et justificatifs</span><div class="files">';
       sheet.draft.files.forEach(function(f){h+='<div class="frow"><b>'+(f.type==='application/pdf'?'PDF':'IMG')+'</b><span>'+esc(f.name)+'</span><button type="button" data-rmfile="'+esc(f.id)+'">Retirer</button></div>'});
       h+='<label class="pick">'+IC.plus+'<span>Joindre un PDF ou une photo</span><input type="file" id="sfile" accept="application/pdf,image/*" multiple></label><span class="hint">Pour un mail : fais une capture d\'écran, ou dans Gmail ⋮ › Imprimer › Enregistrer en PDF.</span></div></div>';
@@ -1750,7 +1763,7 @@ function closeSheet(){
 function saveSheet(){
   capture();
   var k=sheet.kind,d=sheet.draft;
-  var need={trip:'title',stay:'name',act:'title',info:'title'}[k];
+  var need={trip:'title',stay:'name',act:'title',info:'title',back:'stayId'}[k];
   if(k==='flight'&&!d.number&&!d.airline&&!d.from){sheet.err='Indique au moins la compagnie, le n° de vol ou l\'aéroport.';renderSheet();return}
   if(need&&!d[need]){sheet.err='Le champ « '+FIELDS[k].filter(function(f){return f[0]===need})[0][1]+' » est obligatoire.';renderSheet();return}
   if(k==='trip'&&isDate(d.start)&&isDate(d.end)&&d.end<d.start){sheet.err='Le dernier jour doit être après le premier.';renderSheet();return}
@@ -1877,7 +1890,12 @@ function summary(doc,F,Lb,t,att,real,mref){
       var it=e.it,tm=(e.time||'--:--'),lg=before.get(e);
       if(lg){var x=legFor(lg.a.geo,lg.b.geo);w.text('Trajet'+(lg.a.base?' depuis '+lg.a.label:'')+' : '+[x.walk!=null&&x.walk<=4500?'à pied '+(x.est?'~':'')+dur(x.walk):'',x.car?'voiture '+(x.est?'~':'')+dur(x.car):''].filter(Boolean).join(' · '),{indent:52,size:9,color:F.mut})}
       w.keep(30);
-      if(e.kind==='act'){
+      if(e.kind==='act'&&it.stayId){
+        w.text('Retour à '+(e.stay?(e.stay.name||'mon logement'):'un logement'),{lead:tm,indent:52,bold:true});
+        if(it.end)w.text('nouveau départ à '+it.end,{indent:52,size:9,color:F.mut});
+        w.text(it.notes,{indent:52,size:10});
+        if(e.stay)placeLinks('stay',e.stay,52);
+      }else if(e.kind==='act'){
         w.text(it.title||'Activité',{lead:tm,indent:52,bold:true});
         if(it.end)w.text('jusqu\'à '+it.end,{indent:52,size:9,color:F.mut});
         w.text([it.place,it.address].filter(Boolean).join(' · '),{indent:52,color:F.mut});
@@ -1940,7 +1958,7 @@ function loadTile(url){
     im.crossOrigin='anonymous';im.onload=function(){fin(im)};im.onerror=function(){fin(null)};im.src=url;
   });
 }
-function staticMap(marks,line){
+function staticMap(marks,route){
   var W=1200,H=820,pad=80,z=15,i;
   var lats=marks.map(function(m){return m.g.lat}),lngs=marks.map(function(m){return m.g.lng});
   var minLa=Math.min.apply(null,lats),maxLa=Math.max.apply(null,lats),minLo=Math.min.apply(null,lngs),maxLo=Math.max.apply(null,lngs);
@@ -1968,16 +1986,18 @@ function staticMap(marks,line){
       if(withTiles&&r.imgs)jobs.forEach(function(j,k){if(r.imgs[k])x.drawImage(r.imgs[k],Math.round(j.tx*256-ox),Math.round(j.ty*256-oy))});
       else{x.strokeStyle='#d3dbd5';x.lineWidth=1;for(i=0;i<W;i+=60){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke()}for(i=0;i<H;i+=60){x.beginPath();x.moveTo(0,i);x.lineTo(W,i);x.stroke()}}
       var P=function(g){return[lonX(g.lng,z)-ox,latY(g.lat,z)-oy]};
-      if(line&&marks.length>1){
+      if(route&&route.length>1){
         x.setLineDash([14,12]);x.lineWidth=6;x.strokeStyle='rgba(255,255,255,.9)';
-        x.beginPath();marks.forEach(function(m,k){var p=P(m.g);k?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1])});x.stroke();
+        x.beginPath();route.forEach(function(m,k){var p=P(m.g);k?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1])});x.stroke();
         x.lineWidth=3.5;x.strokeStyle='#0b5d6b';x.stroke();x.setLineDash([]);
       }
       marks.forEach(function(m){
-        var p=P(m.g),r2=19,col=m.type==='stay'?'#b5651d':m.type==='air'?'#33415c':'#0b5d6b';
+        x.font='700 '+(m.label.length>2?16:21)+'px "Barlow Condensed", "Arial Narrow", sans-serif';
+        var p=P(m.g),r2=Math.max(19,x.measureText(m.label).width/2+9),col=m.type==='stay'?'#b5651d':m.type==='air'?'#33415c':'#0b5d6b';
         x.shadowColor='rgba(0,0,0,.4)';x.shadowBlur=6;x.fillStyle=col;x.strokeStyle='#fff';x.lineWidth=4;
         x.beginPath();
-        if(m.type==='act')x.arc(p[0],p[1],r2,0,Math.PI*2);else if(x.roundRect)x.roundRect(p[0]-r2,p[1]-r2,r2*2,r2*2,7);else x.rect(p[0]-r2,p[1]-r2,r2*2,r2*2);
+        var hh=19;
+        if(m.type==='act'&&r2<=19)x.arc(p[0],p[1],r2,0,Math.PI*2);else if(x.roundRect)x.roundRect(p[0]-r2,p[1]-hh,r2*2,hh*2,m.type==='act'?hh:7);else x.rect(p[0]-r2,p[1]-hh,r2*2,hh*2);
         x.fill();x.shadowBlur=0;x.stroke();
         x.fillStyle='#fff';x.font='700 '+(m.label.length>2?16:21)+'px "Barlow Condensed", "Arial Narrow", sans-serif';x.textAlign='center';x.textBaseline='middle';
         x.fillText(m.label,p[0],p[1]+1);
@@ -1997,17 +2017,20 @@ function pdfMaps(t){
   range(t.start,t.end).forEach(function(d,i){idx[d]=i+1});
   t.stays.forEach(function(x){if(okGeo(x.geo))all.push({g:x.geo,type:'stay',label:'H',name:x.name||'Logement'})});
   t.flights.forEach(function(f){if(okGeo(f.geo))all.push({g:f.geo,type:'air',label:'A',name:f.from||'Aéroport'});if(okGeo(f.geo2))all.push({g:f.geo2,type:'air',label:'A',name:f.to||'Aéroport'})});
-  t.activities.forEach(function(a){if(okGeo(a.geo))all.push({g:a.geo,type:'act',label:idx[a.date]?'J'+idx[a.date]:'•',name:a.title||'Activité'})});
+  t.activities.forEach(function(a){if(!a.stayId&&okGeo(a.geo))all.push({g:a.geo,type:'act',label:idx[a.date]?'J'+idx[a.date]:'•',name:a.title||'Activité'})});
   var seen={};all=all.filter(function(m){var k=m.g.lat.toFixed(4)+','+m.g.lng.toFixed(4)+m.type;if(seen[k])return false;seen[k]=1;return true});
   var allN=nearOnly(all,function(m){return m.g},function(m){return m.type==='air'});
   if(allN.length>=2)maps.push({overview:true,marks:allN,title:'Vue d\'ensemble du voyage',hidden:all.length-allN.length});
   days.forEach(function(d){
     var seq=daySeq(t,d,ev);if(!seq.length)return;
     var mk=seq.map(function(s,i){
-      var air=seqAir(s),stay=s.base||(s.e&&s.e.kind==='in');
+      var air=seqAir(s),stay=s.base||(s.e&&(s.e.kind==='in'||s.e.stay));
       return{g:s.geo,type:air?'air':stay?'stay':'act',label:String(i+1)};
     }),near=nearOnly(mk,function(m){return m.g},function(m){return m.type==='air'});
-    maps.push({d:d,title:(idx[d]?'J'+idx[d]+' · ':'')+cap(fDay.format(pd(d))),seq:seq,marks:near,hidden:mk.length-near.length});
+    var merged=[],byK={};
+    near.forEach(function(m){var k=m.g.lat.toFixed(5)+','+m.g.lng.toFixed(5);if(byK[k]){byK[k].label+='·'+m.label}else{byK[k]={g:m.g,type:m.type,label:m.label};merged.push(byK[k])}});
+    var route=near;near=merged;
+    maps.push({d:d,title:(idx[d]?'J'+idx[d]+' · ':'')+cap(fDay.format(pd(d))),seq:seq,marks:near,route:route,hidden:mk.length-route.length});
   });
   return maps;
 }
@@ -2027,7 +2050,7 @@ function buildPdf(t,progress){
     maps=pdfMaps(t);
     return maps.reduce(function(p,m,i){return p.then(function(){
       progress('Cartes '+(i+1)+'/'+maps.length+'…');
-      return staticMap(m.marks,!m.overview).then(function(r){m.tiles=r.tiles;return out.embedJpg(r.bytes)}).then(function(img){m.img=img}).catch(function(){m.img=null});
+      return staticMap(m.marks,m.overview?null:m.route).then(function(r){m.tiles=r.tiles;return out.embedJpg(r.bytes)}).then(function(img){m.img=img}).catch(function(){m.img=null});
     })},Promise.resolve());
   }).then(function(){
     maps=maps.filter(function(m){return m.img});
@@ -2131,7 +2154,9 @@ document.addEventListener('click',function(e){
   if(t.hasAttribute('data-vdl')){var f=viewer.f;if(f)download(dataBlob(S.files[f.id]),f.name);return}
   if(t.hasAttribute('data-trip')){if(S.trip)openSheet('trip');return}
   if(d.preset){capture();sheet.draft.banner={preset:d.preset};renderSheet();return}
-  if(d.add){var pre={};if(d.add==='act'){var s=S.trip.start,en=S.trip.end||s,td=today();pre.date=d.date||(isDate(s)?(td>=s&&td<=en?td:s):'')}openSheet(d.add,null,pre);return}
+  if(d.add){var pre={};if(d.add==='act'){var s=S.trip.start,en=S.trip.end||s,td=today();pre.date=d.date||(isDate(s)?(td>=s&&td<=en?td:s):'')}
+    if(d.add==='back'){var dd=d.date||'',st=dd?(stayAt(S.trip,dd)||S.trip.stays.filter(function(x){return dpart(x.checkin)<=dd&&(!x.checkout||dpart(x.checkout)>=dd)})[0]):null;pre={date:dd,stayId:(st||S.trip.stays[0]||{}).id||''}}
+    openSheet(d.add,null,pre);return}
   if(d.edit){var p=d.edit.split(':');openSheet(p[0],p[1]);return}
   if(d.attach){quickTarget=d.attach;$('#quick').value='';$('#quick').click();return}
   if(t.hasAttribute('data-reset')){sheet={kind:'reset',added:[]};renderSheet();return}
@@ -2141,6 +2166,7 @@ document.addEventListener('click',function(e){
     var k=sheet.kind,it=find(k,sheet.id);
     dropFiles((it&&it.files||[]).map(function(f){return f.id}).concat(sheet.added));
     S.trip[KEY[k]]=list(k).filter(function(x){return x.id!==sheet.id});
+    if(k==='stay'){var gone=sheet.id;S.trip.activities=S.trip.activities.filter(function(a){return a.stayId!==gone})}
     sheet=null;renderSheet();changed();return;
   }
   if(d.rmfile){
