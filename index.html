@@ -3354,7 +3354,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='22/10/2026 22:38';
+var APP_VERSION='22/10/2026 22:59';
 var swReg=null;
 function checkUpdate(btn){
   if(!online()){toast('Pas de connexion : la mise à jour se fera plus tard.');return}
@@ -3545,7 +3545,8 @@ function legCtx(dayList,e,lg){
   var i=dayList.indexOf(e),prev=i>0?dayList[i-1]:null;
   if(!prev)return{sa:lg.a};
   if(prev===lg.a.e)return{sa:lg.a};
-  if(!okGeo(prev.geo))return prev.kind==='act'?{hint:prev}:{sa:lg.a,noCheck:true};
+  /* a step without a place is assumed to be close to the last known place: travel starts there, at the end time of that step */
+  if(!okGeo(prev.geo))return prev.kind==='act'?{sa:{e:prev,geo:lg.a.geo},via:true}:{sa:lg.a,noCheck:true};
   if(okGeo(lg.a.geo)&&prev.geo.lat===lg.a.geo.lat&&prev.geo.lng===lg.a.geo.lng)return{sa:{e:prev,geo:prev.geo}};
   return{sa:lg.a,noCheck:true};
 }
@@ -3862,7 +3863,7 @@ function viewProg(t){
     list.forEach(function(e,k){
       var lg=before.get(e);
       if(lg){var cx=legCtx(dayEvents(ev,d),e,lg);
-        x+=cx.hint?'<div class="leg"><span class="gap hint">'+esc(hintText(cx.hint))+'</span></div>':legHtml(lg.a.geo,lg.b.geo,lg.a.base?lg.a.label:'',cx.noCheck?null:availSec(cx.sa,lg.b));}
+        x+=legHtml(lg.a.geo,lg.b.geo,cx.via?lg.a.label+', dernier lieu connu':(lg.a.base?lg.a.label:''),cx.noCheck?null:availSec(cx.sa,lg.b));}
       var c=!opt.arch&&cur(e),n=!opt.arch&&e===nextE,card=evHtml(e);
       if(c||n)card='<div class="nowlabel'+(c?' live':'')+'">'+(c?'En cours':'Prochaine étape')+'</div>'+card.replace('<article class="ev','<article class="ev '+(c?'now':'next'));
       x+=card;
@@ -3978,7 +3979,7 @@ function viewMap(t){
     h+='<div class="stops">';
     if(!seq.length)h+='<p class="unplaced">Aucune étape placée sur la carte ce jour-là.</p>';
     seq.forEach(function(s,i){
-      if(i>0&&!skipLeg(seq[i-1],s)){var cm=s.e?legCtx(dayEvents(ev,S.mapDay),s.e,{a:seq[i-1],b:s}):{sa:seq[i-1]};h+=legHtml(seq[i-1].geo,s.geo,'',cm.hint||cm.noCheck?null:availSec(cm.sa,s))}
+      if(i>0&&!skipLeg(seq[i-1],s)){var cm=s.e?legCtx(dayEvents(ev,S.mapDay),s.e,{a:seq[i-1],b:s}):{sa:seq[i-1]};h+=legHtml(seq[i-1].geo,s.geo,'',cm.noCheck?null:availSec(cm.sa,s))}
       var cls=s.base||(s.e&&(s.e.kind==='in'||s.e.stay))?'stay':(s.e&&(s.e.kind==='dep'||s.e.kind==='arr'))?'air':'';
       h+='<div class="stop"><span class="n '+cls+'">'+(i+1)+'</span><div><h4>'+esc(s.base?'Départ de '+s.label:s.label)+'</h4><p>'+esc(s.e?(s.e.time||'')+(s.e.kind==='act'&&s.it.place?' · '+s.it.place:''):'Logement de la nuit')+'</p></div></div>';
     });
@@ -4299,8 +4300,7 @@ function summary(doc,F,Lb,t,att,real,mref,ban){
     L.forEach(function(e){
       var it=e.it,tm=(e.time||'--:--'),lg=before.get(e);
       var cp=lg?legCtx(L,e,lg):null;
-      if(cp&&cp.hint){w.text(hintText(cp.hint),{indent:52,size:9,color:F.mut});lg=null}
-      if(lg){var x=legFor(lg.a.geo,lg.b.geo),vd=legVerdict(x,cp.noCheck?null:availSec(cp.sa,lg.b));w.text('Trajet'+(lg.a.base?' depuis '+lg.a.label:'')+' : '+[x.walk!=null&&x.walk<=4500?'à pied '+(x.est?'~':'')+dur(x.walk):'',x.car?'voiture '+(x.est?'~':'')+dur(x.car):''].filter(Boolean).join(' · ')+(vd?'  —  '+(vd.st==='bad'?'IMPOSSIBLE : ':vd.st==='warn'?'JUSTE : ':'')+vd.txt:''),{indent:52,size:9,color:vd&&vd.st==='bad'?F.err:vd&&vd.st==='warn'?F.warn:F.mut,bold:!!(vd&&vd.st)})}
+      if(lg){var x=legFor(lg.a.geo,lg.b.geo),vd=legVerdict(x,cp.noCheck?null:availSec(cp.sa,lg.b));w.text('Trajet'+(cp.via?' depuis '+lg.a.label+' (dernier lieu connu)':lg.a.base?' depuis '+lg.a.label:'')+' : '+[x.walk!=null&&x.walk<=4500?'à pied '+(x.est?'~':'')+dur(x.walk):'',x.car?'voiture '+(x.est?'~':'')+dur(x.car):''].filter(Boolean).join(' · ')+(vd?'  —  '+(vd.st==='bad'?'IMPOSSIBLE : ':vd.st==='warn'?'JUSTE : ':'')+vd.txt:''),{indent:52,size:9,color:vd&&vd.st==='bad'?F.err:vd&&vd.st==='warn'?F.warn:F.mut,bold:!!(vd&&vd.st)})}
       w.keep(30);
       if(e.kind==='act'&&it.stayId){
         w.text('Retour à '+(e.stay?(e.stay.name||'mon logement'):'un logement'),{lead:tm,indent:52,bold:true});
