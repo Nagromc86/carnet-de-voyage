@@ -3333,7 +3333,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='22/10/2026 15:21';
+var APP_VERSION='22/10/2026 15:31';
 var APP_URL='https://nagromc86.github.io/carnet-de-voyage/';
 var KEY={flight:'flights',stay:'stays',act:'activities',back:'activities',info:'infos'};
 var IMG_TYPES=['image/jpeg','image/png','image/webp','image/gif'];
@@ -3787,7 +3787,6 @@ function viewProg(t){
   range(t.start,t.end).forEach(function(d,i){idx[d]=i+1});
   var td=today(),h='<div class="shead"><h2>Programme</h2><button type="button" class="btn" data-add="act">'+IC.plus+'Activité</button></div>';
   if(!days.length&&!ev.length)return h+'<div class="empty"><p>Ajoute les dates du voyage pour voir chaque jour, puis tes activités avec leurs horaires.</p><button type="button" class="btn ghost" data-trip>Ajouter les dates</button></div>';
-  if(ev.length)h+=offlineCard(t);
   if(days.length>1){
     h+='<div class="chips">';
     days.forEach(function(d){h+='<button type="button" class="chip'+(d===td?' today':'')+'" data-jump="'+d+'"><b>'+(idx[d]?'J'+idx[d]:'·')+'</b>'+fChip.format(pd(d))+'</button>'});
