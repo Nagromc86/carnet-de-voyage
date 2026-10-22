@@ -684,7 +684,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   --bg:#eef1f4; --surface:#ffffff; --ink:#11181f; --muted:#5a6672; --line:#d8dee5;
   --accent:#0b5d6b; --accent-ink:#ffffff; --accent-soft:#dcecee;
   --sign:#ffc629; --sign-ink:#1d1600;
-  --danger:#b42318; --ok:#1b7a46; --scrim:rgba(10,16,20,.5);
+  --danger:#b42318; --warn:#b25e00; --ok:#1b7a46; --scrim:rgba(10,16,20,.5);
   --display:"Barlow Condensed","Arial Narrow",ui-sans-serif,sans-serif;
   --body:"Barlow",ui-sans-serif,system-ui,sans-serif;
   --mono:"DM Mono",ui-monospace,Menlo,monospace;
@@ -694,7 +694,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   --bg:#0e1317; --surface:#161d23; --ink:#e7edf2; --muted:#94a1ad; --line:#27323b;
   --accent:#5cc2cf; --accent-ink:#062328; --accent-soft:#16323a;
   --sign:#ffcf47; --sign-ink:#1d1600;
-  --danger:#ff8f84; --ok:#6fd49a; --scrim:rgba(0,0,0,.65); color-scheme:dark}}
+  --danger:#ff8f84; --warn:#ffb454; --ok:#6fd49a; --scrim:rgba(0,0,0,.65); color-scheme:dark}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
@@ -769,6 +769,18 @@ svg{flex:none}
 .leg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-left:26px;padding:2px 0 2px 26px;border-left:2px dotted var(--line);font-family:var(--mono);font-size:.78rem;color:var(--muted)}
 .leg span{display:inline-flex;align-items:center;gap:4px}
 .leg svg{width:15px;height:15px}
+.leg .bad{color:var(--danger);font-weight:600}
+.leg .warn{color:var(--warn);font-weight:600}
+.leg .gap{flex-basis:100%;font-family:var(--body);font-size:.85rem}
+.archive{display:flex;flex-direction:column;gap:10px}
+.archbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:10px;padding:10px 12px;font-weight:600;font-size:.9rem;text-align:left}
+.archbtn b{font-family:var(--mono);font-size:.75rem;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:1px 8px}
+.archbody{display:flex;flex-direction:column;gap:14px;opacity:.72}
+.nowlabel{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin:4px 0 -4px 2px}
+.nowlabel.live{color:var(--danger)}
+.nowlabel.live::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger);margin-right:6px;vertical-align:1px}
+.ev.now{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.ev.next{border-color:var(--accent)}
 .leg a{font-family:var(--body);font-weight:600;font-size:.85rem;text-decoration:none}
 .leg .from{flex-basis:100%;font-family:var(--body);font-size:.8rem}
 
@@ -3341,7 +3353,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='22/10/2026 15:38';
+var APP_VERSION='22/10/2026 17:54';
 var APP_URL='https://nagromc86.github.io/carnet-de-voyage/';
 var KEY={flight:'flights',stay:'stays',act:'activities',back:'activities',info:'infos'};
 var IMG_TYPES=['image/jpeg','image/png','image/webp','image/gif'];
@@ -3514,15 +3526,29 @@ function runLegs(){
   }).then(function(){return sleep(400)}).then(function(){legBusy=false;runLegs()});
 }
 function dur(s){if(s==null)return '';var m=Math.max(1,Math.round(s/60));if(m<60)return m+' min';return Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')}
-function legHtml(a,b,fromLabel){
-  var L=legFor(a,b),h='<div class="leg">';
+function hm(s){if(!/^\d{1,2}:\d{2}/.test(s||''))return null;var p=s.split(':');return (+p[0])*60+(+p[1])}
+function evEnd(e){return e.kind==='act'?(e.it.end||e.it.start||''):e.time}
+function availSec(sa,sb){if(!sa||sa.base||!sa.e||!sb||!sb.e)return null;if(sa.e.kind==='in'||sb.e.kind==='in')return null;var a=hm(evEnd(sa.e)),b=hm(sb.e.time);if(a==null||b==null)return null;return (b-a)*60}
+function legState(avail,sec){if(avail==null||sec==null)return '';var x=avail-sec;return x<0?'bad':x<=900?'warn':''}
+function legModes(L){var m=[];if(L.walk!=null&&L.walk<=75*60)m.push(['walk',L.walk]);if(L.car)m.push(['car',L.car]);return m}
+function legVerdict(L,avail){
+  var m=legModes(L);if(avail==null||!m.length)return null;
+  var best=Math.min.apply(null,m.map(function(x){return x[1]})),st=legState(avail,best);
+  var any=m.some(function(x){return legState(avail,x[1])});
+  if(!any)return null;
+  var txt=avail<0?'les horaires se chevauchent ('+dur(-avail)+')':avail===0?'aucun temps prévu entre les deux':dur(avail)+' prévues entre les deux';
+  return{st:st,txt:txt,best:best};
+}
+function legHtml(a,b,fromLabel,avail){
+  var L=legFor(a,b),h='<div class="leg">',v=legVerdict(L,avail);
   if(fromLabel)h+='<span class="from">Depuis '+esc(fromLabel)+'</span>';
-  if(L.walk!=null&&L.walk<=75*60)h+='<span>'+IC.walk+(L.est?'≈ ':'')+dur(L.walk)+'</span>';
-  if(L.car)h+='<span>'+IC.car+(L.est?'≈ ':'')+dur(L.car)+'</span>';
-  else if(L.walk!=null&&L.walk<=75*60&&!L.car&&!L.est){}
+  if(L.walk!=null&&L.walk<=75*60){var sw=legState(avail,L.walk);h+='<span class="'+sw+'">'+IC.walk+(L.est?'≈ ':'')+dur(L.walk)+'</span>'}
+  if(L.car){var sc=legState(avail,L.car);h+='<span class="'+sc+'">'+IC.car+(L.est?'≈ ':'')+dur(L.car)+'</span>'}
   var km=L.km!=null?L.km:hav(a,b);
   h+='<span>'+(km<1?Math.round(km*1000)+' m':km.toFixed(1).replace('.',',')+' km')+'</span>';
-  h+='<a href="https://www.google.com/maps/dir/?api=1&origin='+a.lat+','+a.lng+'&destination='+b.lat+','+b.lng+'" target="_blank" rel="noopener">Itinéraire</a></div>';
+  h+='<a href="https://www.google.com/maps/dir/?api=1&origin='+a.lat+','+a.lng+'&destination='+b.lat+','+b.lng+'" target="_blank" rel="noopener">Itinéraire</a>';
+  if(v)h+='<span class="gap '+v.st+'">'+(v.st==='bad'?'Impossible : ':v.st==='warn'?'Juste : ':'')+esc(v.txt)+'</span>';
+  h+='</div>';
   return h;
 }
 
@@ -3795,23 +3821,51 @@ function viewProg(t){
   range(t.start,t.end).forEach(function(d,i){idx[d]=i+1});
   var td=today(),h='<div class="shead"><h2>Programme</h2><button type="button" class="btn" data-add="act">'+IC.plus+'Activité</button></div>';
   if(!days.length&&!ev.length)return h+'<div class="empty"><p>Ajoute les dates du voyage pour voir chaque jour, puis tes activités avec leurs horaires.</p><button type="button" class="btn ghost" data-trip>Ajouter les dates</button></div>';
-  if(days.length>1){
+  var now=new Date(),nowM=now.getHours()*60+now.getMinutes(),endD=isDate(t.end)?t.end:t.start;
+  var during=isDate(t.start)&&td>=t.start&&td<=endD;
+  var cur=function(e){if(e.date!==td||e.kind!=='act')return false;var a=hm(e.it.start),b=e.it.end?hm(e.it.end):(a!=null?a+60:null);return a!=null&&a<=nowM&&nowM<b};
+  var past=function(e){
+    if(!isDate(e.date))return false;if(e.date<td)return true;if(e.date>td)return false;
+    if(cur(e))return false;
+    var m=e.kind==='act'&&!e.it.end?(hm(e.it.start)!=null?hm(e.it.start)+60:null):hm(evEnd(e));
+    return m!=null&&m<=nowM;
+  };
+  var nextE=null;
+  if(during)ev.slice().sort(function(a,b){return (a.date+(a.time||'99')).localeCompare(b.date+(b.time||'99'))}).some(function(e){if(isDate(e.date)&&e.date>=td&&!past(e)&&!cur(e)){nextE=e;return true}return false});
+  function dayHtml(d,list,opt){
+    opt=opt||{};
+    var seq=daySeq(t,d,ev),before=new Map(),x='';
+    for(var i=1;i<seq.length;i++)if(seq[i].e&&!skipLeg(seq[i-1],seq[i]))before.set(seq[i].e,{a:seq[i-1],b:seq[i]});
+    x+='<section class="day'+(opt.arch?' arch':'')+'"'+(opt.arch?'':' id="d-'+d+'"')+'><div class="dayhead"><span class="dnum">'+(idx[d]?'J'+idx[d]:'')+'</span><h3>'+esc(cap(fDay.format(pd(d))))+'</h3>'+(d===td&&!opt.arch?'<span class="tag">Aujourd\'hui</span>':'')+'</div>';
+    if(!list.length&&!opt.arch)x+='<p class="emptyday">'+(d===td&&during&&dayEvents(ev,d).length?'Plus rien de prévu aujourd\'hui.':'Rien de prévu pour l\'instant.')+'</p>';
+    list.forEach(function(e,k){
+      var lg=before.get(e);
+      if(lg)x+=legHtml(lg.a.geo,lg.b.geo,lg.a.base?lg.a.label:'',availSec(lg.a,lg.b));
+      var c=!opt.arch&&cur(e),n=!opt.arch&&e===nextE,card=evHtml(e);
+      if(c||n)card='<div class="nowlabel'+(c?' live':'')+'">'+(c?'En cours':'Prochaine étape')+'</div>'+card.replace('<article class="ev','<article class="ev '+(c?'now':'next'));
+      x+=card;
+    });
+    if(!opt.arch)x+='<div class="adds"><button type="button" class="addday" data-add="act" data-date="'+d+'">+ Activité</button>'+(t.stays.length?'<button type="button" class="addday" data-add="back" data-date="'+d+'">+ Retour au logement</button>':'')+'</div>';
+    return x+'</section>';
+  }
+  var shown=days;
+  if(during){
+    var arch='',n=0;
+    days.forEach(function(d){
+      if(d>td)return;
+      var L=dayEvents(ev,d).filter(past);
+      if(!L.length)return;
+      n+=L.length;arch+=dayHtml(d,L,{arch:true});
+    });
+    shown=days.filter(function(d){return d>=td});
+    if(n)h+='<div class="archive"><button type="button" class="archbtn" data-arch aria-expanded="'+(!!S.archOpen)+'"><span>'+(S.archOpen?'Masquer':'Afficher')+' les étapes passées</span><b>'+n+'</b></button>'+(S.archOpen?'<div class="archbody">'+arch+'</div>':'')+'</div>';
+  }
+  if(shown.length>1){
     h+='<div class="chips">';
-    days.forEach(function(d){h+='<button type="button" class="chip'+(d===td?' today':'')+'" data-jump="'+d+'"><b>'+(idx[d]?'J'+idx[d]:'·')+'</b>'+fChip.format(pd(d))+'</button>'});
+    shown.forEach(function(d){h+='<button type="button" class="chip'+(d===td?' today':'')+'" data-jump="'+d+'"><b>'+(idx[d]?'J'+idx[d]:'·')+'</b>'+fChip.format(pd(d))+'</button>'});
     h+='</div>';
   }
-  days.forEach(function(d){
-    var L=dayEvents(ev,d),seq=daySeq(t,d,ev),before=new Map();
-    for(var i=1;i<seq.length;i++)if(seq[i].e&&!skipLeg(seq[i-1],seq[i]))before.set(seq[i].e,{a:seq[i-1],b:seq[i]});
-    h+='<section class="day" id="d-'+d+'"><div class="dayhead"><span class="dnum">'+(idx[d]?'J'+idx[d]:'')+'</span><h3>'+esc(cap(fDay.format(pd(d))))+'</h3>'+(d===td?'<span class="tag">Aujourd\'hui</span>':'')+'</div>';
-    if(!L.length)h+='<p class="emptyday">Rien de prévu pour l\'instant.</p>';
-    L.forEach(function(e){
-      var lg=before.get(e);
-      if(lg)h+=legHtml(lg.a.geo,lg.b.geo,lg.a.base?lg.a.label:'');
-      h+=evHtml(e);
-    });
-    h+='<div class="adds"><button type="button" class="addday" data-add="act" data-date="'+d+'">+ Activité</button>'+(t.stays.length?'<button type="button" class="addday" data-add="back" data-date="'+d+'">+ Retour au logement</button>':'')+'</div></section>';
-  });
+  shown.forEach(function(d){h+=dayHtml(d,dayEvents(ev,d).filter(function(e){return !during||!past(e)}),{cut:during&&d===td})});
   var und=ev.filter(function(e){return !isDate(e.date)});
   if(und.length){h+='<section class="day"><div class="dayhead"><span class="dnum"></span><h3>Sans date</h3></div>';und.forEach(function(e){h+=evHtml(e)});h+='</section>'}
   return h;
@@ -3902,7 +3956,7 @@ function viewMap(t){
     h+='<div class="stops">';
     if(!seq.length)h+='<p class="unplaced">Aucune étape placée sur la carte ce jour-là.</p>';
     seq.forEach(function(s,i){
-      if(i>0&&!skipLeg(seq[i-1],s))h+=legHtml(seq[i-1].geo,s.geo,'');
+      if(i>0&&!skipLeg(seq[i-1],s))h+=legHtml(seq[i-1].geo,s.geo,'',availSec(seq[i-1],s));
       var cls=s.base||(s.e&&(s.e.kind==='in'||s.e.stay))?'stay':(s.e&&(s.e.kind==='dep'||s.e.kind==='arr'))?'air':'';
       h+='<div class="stop"><span class="n '+cls+'">'+(i+1)+'</span><div><h4>'+esc(s.base?'Départ de '+s.label:s.label)+'</h4><p>'+esc(s.e?(s.e.time||'')+(s.e.kind==='act'&&s.it.place?' · '+s.it.place:''):'Logement de la nuit')+'</p></div></div>';
     });
@@ -4222,7 +4276,7 @@ function summary(doc,F,Lb,t,att,real,mref,ban){
     if(!L.length)w.text('Rien de prévu.',{indent:52,color:F.mut});
     L.forEach(function(e){
       var it=e.it,tm=(e.time||'--:--'),lg=before.get(e);
-      if(lg){var x=legFor(lg.a.geo,lg.b.geo);w.text('Trajet'+(lg.a.base?' depuis '+lg.a.label:'')+' : '+[x.walk!=null&&x.walk<=4500?'à pied '+(x.est?'~':'')+dur(x.walk):'',x.car?'voiture '+(x.est?'~':'')+dur(x.car):''].filter(Boolean).join(' · '),{indent:52,size:9,color:F.mut})}
+      if(lg){var x=legFor(lg.a.geo,lg.b.geo),vd=legVerdict(x,availSec(lg.a,lg.b));w.text('Trajet'+(lg.a.base?' depuis '+lg.a.label:'')+' : '+[x.walk!=null&&x.walk<=4500?'à pied '+(x.est?'~':'')+dur(x.walk):'',x.car?'voiture '+(x.est?'~':'')+dur(x.car):''].filter(Boolean).join(' · ')+(vd?'  —  '+(vd.st==='bad'?'IMPOSSIBLE : ':vd.st==='warn'?'JUSTE : ':'')+vd.txt:''),{indent:52,size:9,color:vd&&vd.st==='bad'?F.err:vd&&vd.st==='warn'?F.warn:F.mut,bold:!!(vd&&vd.st)})}
       w.keep(30);
       if(e.kind==='act'&&it.stayId){
         w.text('Retour à '+(e.stay?(e.stay.name||'mon logement'):'un logement'),{lead:tm,indent:52,bold:true});
@@ -4279,7 +4333,7 @@ function toPng(bytes,type){
 }
 function pdfFonts(doc,Lb){
   return Promise.all([doc.embedFont(Lb.StandardFonts.Helvetica),doc.embedFont(Lb.StandardFonts.HelveticaBold),doc.embedFont(Lb.StandardFonts.Courier)]).then(function(f){
-    return{r:f[0],b:f[1],m:f[2],ink:Lb.rgb(.07,.09,.12),mut:Lb.rgb(.35,.4,.45),acc:Lb.rgb(.04,.36,.42),line:Lb.rgb(.82,.85,.88),sign:Lb.rgb(1,.78,.16),err:Lb.rgb(.7,.14,.09)};
+    return{r:f[0],b:f[1],m:f[2],ink:Lb.rgb(.07,.09,.12),mut:Lb.rgb(.35,.4,.45),acc:Lb.rgb(.04,.36,.42),line:Lb.rgb(.82,.85,.88),sign:Lb.rgb(1,.78,.16),err:Lb.rgb(.7,.14,.09),warn:Lb.rgb(.72,.38,0)};
   });
 }
 /* static map images for the PDF */
@@ -4530,9 +4584,10 @@ function qrSvg(text){
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-maplock],[data-resetask],[data-resetall],[data-resetcancel],[data-resetgeo],[data-shareapp],[data-qr],[data-backup],[data-exportcopy],[data-save],[data-export],[data-tab],[data-add],[data-edit],[data-attach],[data-trip],[data-reset],[data-close],[data-doreset],[data-askdel],[data-delitem],[data-rmfile],[data-jump],[data-copy],[data-open],[data-vclose],[data-vzoom],[data-vdl],[data-mapday],[data-base],[data-preset],[data-rm]');
+  var t=e.target.closest('[data-arch],[data-maplock],[data-resetask],[data-resetall],[data-resetcancel],[data-resetgeo],[data-shareapp],[data-qr],[data-backup],[data-exportcopy],[data-save],[data-export],[data-tab],[data-add],[data-edit],[data-attach],[data-trip],[data-reset],[data-close],[data-doreset],[data-askdel],[data-delitem],[data-rmfile],[data-jump],[data-copy],[data-open],[data-vclose],[data-vzoom],[data-vdl],[data-mapday],[data-base],[data-preset],[data-rm]');
   if(!t){if(e.target.id==='sheet')closeSheet();return}
   var d=t.dataset;
+  if(t.hasAttribute('data-arch')){S.archOpen=!S.archOpen;render();return}
   if(t.hasAttribute('data-maplock')){S.mapEdit=!S.mapEdit;S.confirmGeo=false;render();toast(S.mapEdit?'Déplacement activé : glisse un point pour le corriger.':'Positions verrouillées.');return}
   if(t.hasAttribute('data-resetask')){S.confirmGeo=true;render();return}
   if(t.hasAttribute('data-resetcancel')){S.confirmGeo=false;render();return}
@@ -4635,6 +4690,9 @@ document.addEventListener('change',function(e){
       .then(function(){changed();toast(PWA?'Fichier ajouté.':'Fichier ajouté. Pense à enregistrer le carnet.')});
   }
 });
+function idleRefresh(){if(S.trip&&S.tab==='prog'&&!sheet&&$('#modal').hidden&&$('#viewer').hidden&&document.visibilityState==='visible')render()}
+setInterval(idleRefresh,5*60*1000);
+document.addEventListener('visibilitychange',idleRefresh);
 window.addEventListener('online',function(){runGeo();runLegs();if(S.tab==='carte')render()});
 window.addEventListener('offline',function(){if(S.tab==='carte')render()});
 window.addEventListener('beforeunload',function(e){if(!PWA&&S.changed&&S.trip){e.preventDefault();e.returnValue=''}});
