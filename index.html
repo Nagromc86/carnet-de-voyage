@@ -887,6 +887,8 @@ a.act{color:var(--ink)}
 .fld{display:flex;flex-direction:column;gap:4px;min-width:0}
 .fld>label,.lbl{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
 .fld input,.fld textarea,.fld select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 11px;width:100%;min-height:44px}
+.chk,.fld>label.chk{display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer;font-family:var(--body);font-size:1rem;text-transform:none;letter-spacing:0;color:var(--ink)}
+.chk input{width:22px;height:22px;accent-color:var(--accent);margin:0}
 .fld textarea{min-height:88px;resize:vertical}
 .hint{font-size:.78rem;color:var(--muted)}
 .err{color:var(--danger);font-size:.9rem;margin:0}
@@ -3354,7 +3356,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='22/10/2026 22:59';
+var APP_VERSION='23/10/2026 00:34';
 var swReg=null;
 function checkUpdate(btn){
   if(!online()){toast('Pas de connexion : la mise à jour se fera plus tard.');return}
@@ -3577,7 +3579,7 @@ function legHtml(a,b,fromLabel,avail){
 /* ---------- day sequences (shared by programme and map) ---------- */
 function events(t){
   var ev=[];
-  t.activities.forEach(function(a){var st=stayOf(a);ev.push({date:a.date||'',time:a.start||'',kind:'act',it:a,geo:st?st.geo:a.geo,stay:st})});
+  t.activities.forEach(function(a){var st=stayOf(a);ev.push({date:a.date||'',time:a.start||'',kind:'act',it:a,geo:a.hideMap?null:(st?st.geo:a.geo),stay:st})});
   t.flights.forEach(function(f){
     if(f.dep)ev.push({date:dpart(f.dep),time:tpart(f.dep),kind:'dep',it:f,geo:f.geo});
     if(f.arr)ev.push({date:dpart(f.arr),time:tpart(f.arr),kind:'arr',it:f,geo:f.geo2});
@@ -3818,7 +3820,7 @@ function evHtml(e){
   if(e.kind==='act'){
     var where=[it.place,it.address].filter(Boolean).join(' · ');
     return '<article class="ev"><div class="time">'+esc(it.start||'—')+(it.end?'<small>'+esc(it.end)+'</small>':'')+'</div><div class="body">'+
-      '<h4>'+esc(it.title||'Activité')+'</h4>'+(where?'<p class="where">'+esc(where)+'</p>':'')+(it.notes?'<p class="note">'+esc(it.notes)+'</p>':'')+actions('act',it)+'</div></article>';
+      '<h4>'+esc(it.title||'Activité')+'</h4>'+(it.hideMap?'<span class="k" style="color:var(--muted)">Pas sur la carte</span>':'')+(where?'<p class="where">'+esc(where)+'</p>':'')+(it.notes?'<p class="note">'+esc(it.notes)+'</p>':'')+actions('act',it)+'</div></article>';
   }
   if(e.kind==='dep'){
     var fl=[it.airline,it.number].filter(Boolean).join(' ');
@@ -3970,7 +3972,7 @@ function viewMap(t){
   h+='<div class="mapwrap"><div id="mapslot"></div>'+(!online()?'<div class="mapnote">Fond de carte indisponible sans connexion. Les étapes et les temps de trajet déjà calculés restent ci-dessous.</div>':tileErr?'<div class="mapnote">Ce fond de carte ne se charge pas. Essaie un autre fond juste au-dessus.</div>':'')+'</div>';
   var unplaced=[];
   [['flight','geo',function(f){return 'Aéroport · '+(f.from||'')}],['flight','geo2',function(f){return 'Aéroport · '+(f.to||'')}],['stay','geo',function(s){return s.name}],['act','geo',function(a){return a.title}]].forEach(function(p){
-    list(p[0]).forEach(function(it){var q=geoQuery(p[0],it,p[1]==='geo2');if(q&&!okGeo(it[p[1]]))unplaced.push({n:p[2](it),failed:it[p[1]]&&it[p[1]].failed})});
+    list(p[0]).forEach(function(it){var q=geoQuery(p[0],it,p[1]==='geo2');if(q&&!it.hideMap&&!okGeo(it[p[1]]))unplaced.push({n:p[2](it),failed:it[p[1]]&&it[p[1]].failed})});
   });
   if(S.mapDay==='all'){
     h+='<p class="unplaced">Touche « J1 », « J2 »… pour voir le parcours d\'une journée et les temps de trajet. Pour corriger un point mal placé, ouvre le cadenas puis fais-le glisser.</p>';
@@ -4034,7 +4036,7 @@ function drawMap(){
       if(okGeo(f.geo))mark(f.geo,'mk-air',IC.planeUp.replace('currentColor','#fff'),f.from||'Aéroport',shortDT(f.dep),setterFor(f,'geo'));
       if(okGeo(f.geo2))mark(f.geo2,'mk-air',IC.planeUp.replace('currentColor','#fff'),f.to||'Aéroport',shortDT(f.arr),setterFor(f,'geo2'));
     });
-    t.activities.forEach(function(a){if(!a.stayId&&okGeo(a.geo))mark(a.geo,'mk-act',idx[a.date]?'J'+idx[a.date]:'•',a.title||'Activité',[a.date?fShort.format(pd(a.date)):'',a.start].filter(Boolean).join(' · '),setterFor(a,'geo'))});
+    t.activities.forEach(function(a){if(!a.stayId&&!a.hideMap&&okGeo(a.geo))mark(a.geo,'mk-act',idx[a.date]?'J'+idx[a.date]:'•',a.title||'Activité',[a.date?fShort.format(pd(a.date)):'',a.start].filter(Boolean).join(' · '),setterFor(a,'geo'))});
     $('#map').style.fontSize='';
     [].forEach.call(document.querySelectorAll('#map .mk-act'),function(e){e.style.fontSize='12px'});
   }else{
@@ -4091,7 +4093,7 @@ var FIELDS={
     ['checkin','Arrivée (check-in)','datetime-local'],['checkout','Départ (check-out)','datetime-local'],['ref','N° de réservation','text'],['phone','Téléphone','tel'],['access','Code d\'accès / Wi-Fi','text','',1],['notes','Notes','textarea','',1]],
   back:[['stayId','Logement','stay','',1,'Les billets et la réservation restent sur la fiche du logement.'],['date','Jour','date','',1],['start','Arrivée au logement','time'],['end','Nouveau départ','time'],['notes','Notes','textarea','ex. Pause, se changer, récupérer les bagages…',1]],
   act:[['title','Activité','text','ex. Visite du Castelo de São Jorge',1],['date','Jour','date','',1],['start','Début','time'],['end','Fin','time'],
-    ['place','Lieu','text','ex. Castelo de São Jorge',1],['address','Adresse','text','Facultatif si le lieu suffit',1],['maps','Lien Google Maps','url','Colle le lien « Partager » de Google Maps',1,'Facultatif. Sans lien, le lieu est cherché à partir du nom et de l\'adresse.'],['notes','Notes','textarea','Réservation, horaires, conseils…',1]],
+    ['place','Lieu','text','ex. Castelo de São Jorge',1],['address','Adresse','text','Facultatif si le lieu suffit',1],['maps','Lien Google Maps','url','Colle le lien « Partager » de Google Maps',1,'Facultatif. Sans lien, le lieu est cherché à partir du nom et de l\'adresse.'],['showMap','Afficher sur la carte','check','',1,'Décochée : l\'activité n\'apparaît ni sur la carte ni sur les cartes du PDF, et le trajet suivant part du dernier lieu affiché.'],['notes','Notes','textarea','Réservation, horaires, conseils…',1]],
   info:[['title','Titre','text','ex. Assurance voyage',1],['text','Détails','textarea','Numéros, contacts, références…',1]]
 };
 var TITLES={back:['Retour au logement','Modifier le passage au logement'],trip:['Nouveau voyage','Le voyage'],flight:['Nouveau vol','Modifier le vol'],stay:['Nouveau logement','Modifier le logement'],act:['Nouvelle activité','Modifier l\'activité'],info:['Nouvelle info','Modifier l\'info']};
@@ -4099,13 +4101,14 @@ var GEO_FIELDS={flight:['from','to','maps'],stay:['name','address','maps'],act:[
 function fieldsHtml(kind,d){
   return FIELDS[kind].map(function(f){
     var id='f-'+kind+'-'+f[0],v=d[f[0]]||'';
+    if(f[2]==='check')return '<div class="fld full"><label class="chk" for="'+id+'"><input type="checkbox" id="'+id+'" name="'+f[0]+'"'+(d.hideMap?'':' checked')+'><span>'+esc(f[1])+'</span></label>'+(f[5]?'<span class="hint">'+esc(f[5])+'</span>':'')+'</div>';
     var input=f[2]==='stay'?'<select id="'+id+'" name="'+f[0]+'">'+S.trip.stays.map(function(st){return '<option value="'+esc(st.id)+'"'+(v===st.id?' selected':'')+'>'+esc(st.name||'Logement')+'</option>'}).join('')+'</select>':
       f[2]==='textarea'?'<textarea id="'+id+'" name="'+f[0]+'" placeholder="'+esc(f[3]||'')+'">'+esc(v)+'</textarea>':
       '<input id="'+id+'" name="'+f[0]+'" type="'+f[2]+'" value="'+esc(v)+'" placeholder="'+esc(f[3]||'')+'"'+(f[2]==='url'?' inputmode="url"':'')+'>';
     return '<div class="fld'+(f[4]?' full':'')+'"><label for="'+id+'">'+esc(f[1])+'</label>'+input+(f[5]?'<span class="hint">'+esc(f[5])+'</span>':'')+'</div>';
   }).join('');
 }
-function readForm(form,kind,into){FIELDS[kind].forEach(function(f){var el=form.elements[f[0]];if(el)into[f[0]]=el.value.trim()})}
+function readForm(form,kind,into){FIELDS[kind].forEach(function(f){var el=form.elements[f[0]];if(!el)return;if(el.type==='checkbox'){if(f[0]==='showMap'){if(el.checked)delete into.hideMap;else into.hideMap=true}return}into[f[0]]=el.value.trim()})}
 function openSheet(kind,id,preset){
   var it=kind==='trip'?S.trip:(id?find(kind,id):null);
   sheet={kind:kind,id:id||null,draft:it?JSON.parse(JSON.stringify(it)):Object.assign({files:[]},preset||{}),orig:it?JSON.parse(JSON.stringify(it)):null,added:[],busy:'',err:'',confirm:false};
@@ -4429,7 +4432,7 @@ function pdfMaps(t){
   range(t.start,t.end).forEach(function(d,i){idx[d]=i+1});
   t.stays.forEach(function(x){if(okGeo(x.geo))all.push({g:x.geo,type:'stay',label:'H',name:x.name||'Logement'})});
   t.flights.forEach(function(f){if(okGeo(f.geo))all.push({g:f.geo,type:'air',label:'A',name:f.from||'Aéroport'});if(okGeo(f.geo2))all.push({g:f.geo2,type:'air',label:'A',name:f.to||'Aéroport'})});
-  t.activities.forEach(function(a){if(!a.stayId&&okGeo(a.geo))all.push({g:a.geo,type:'act',label:idx[a.date]?'J'+idx[a.date]:'•',name:a.title||'Activité'})});
+  t.activities.forEach(function(a){if(!a.stayId&&!a.hideMap&&okGeo(a.geo))all.push({g:a.geo,type:'act',label:idx[a.date]?'J'+idx[a.date]:'•',name:a.title||'Activité'})});
   var seen={};all=all.filter(function(m){var k=m.g.lat.toFixed(4)+','+m.g.lng.toFixed(4)+m.type;if(seen[k])return false;seen[k]=1;return true});
   var allN=nearOnly(all,function(m){return m.g},function(m){return m.type==='air'});
   if(allN.length>=2)maps.push({overview:true,marks:allN,title:'Vue d\'ensemble du voyage',hidden:all.length-allN.length});
