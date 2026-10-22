@@ -847,6 +847,12 @@ a.act{color:var(--ink)}
 .urlrow{margin:0;font-family:var(--mono);font-size:.85rem;background:var(--bg);border-radius:8px;padding:9px 11px;overflow-wrap:anywhere;user-select:all}
 .qrbox{display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:6px}
 .qrbox svg{width:200px;height:200px;border-radius:8px;border:1px solid var(--line)}
+.maptools{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.lockbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 12px;font-weight:600;font-size:.85rem;min-height:34px}
+.lockbtn svg{width:16px;height:16px}
+.lockbtn.open{background:var(--sign);border-color:var(--sign);color:var(--sign-ink)}
+.popreset,.linkbtn{border:0;background:none;padding:0;color:var(--accent);font-weight:600;text-decoration:underline;cursor:pointer;font-size:inherit}
+.popreset{color:#0b5d6b}
 .unplaced{font-size:.88rem;color:var(--muted);margin:0}
 .bases{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .bases button{font-family:var(--body);text-transform:none;letter-spacing:0;font-size:.85rem;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 12px}
@@ -3321,6 +3327,8 @@ var IC={
   bedW:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/></svg>',
   info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>',
   flt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16l20-6-3-2-6 2-5-4H6l2 5-4 1-2-1z"/><path d="M3 21h18"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  unlock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>',
   save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/></svg>'
 };
 var BANNERS=[
@@ -3333,7 +3341,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='22/10/2026 15:31';
+var APP_VERSION='22/10/2026 15:38';
 var APP_URL='https://nagromc86.github.io/carnet-de-voyage/';
 var KEY={flight:'flights',stay:'stays',act:'activities',back:'activities',info:'infos'};
 var IMG_TYPES=['image/jpeg','image/png','image/webp','image/gif'];
@@ -3878,13 +3886,17 @@ function viewMap(t){
   var h='<div class="shead"><h2>Carte</h2></div><div class="chips"><button type="button" class="chip" data-mapday="all" aria-pressed="'+(S.mapDay==='all')+'"><b>Tout</b>voyage</button>';
   days.forEach(function(d){h+='<button type="button" class="chip'+(d===today()?' today':'')+'" data-mapday="'+d+'" aria-pressed="'+(S.mapDay===d)+'"><b>'+(idx[d]?'J'+idx[d]:'·')+'</b>'+fChip.format(pd(d))+'</button>'});
   h+='</div><div class="bases" role="group" aria-label="Fond de carte"><span>Fond</span>'+TILES.map(function(x){return '<button type="button" data-base="'+x.id+'" aria-pressed="'+(baseId()===x.id)+'">'+x.name+'</button>'}).join('')+'</div>';
+  var nMan=manualGeos().length;
+  h+='<div class="maptools"><button type="button" class="lockbtn'+(S.mapEdit?' open':'')+'" data-maplock aria-pressed="'+(!S.mapEdit)+'">'+(S.mapEdit?IC.unlock+'Déplacement activé : glisse un point pour le corriger':IC.lock+'Positions verrouillées')+'</button>'+
+    (nMan?(S.confirmGeo?'<button type="button" class="act" data-resetall style="border-color:var(--danger);color:var(--danger)">Confirmer : remettre '+nMan+' point(s) à leur adresse</button><button type="button" class="act ghost" data-resetcancel>Annuler</button>'
+      :'<button type="button" class="act ghost" data-resetask>Réinitialiser les positions ('+nMan+')</button>'):'')+'</div>';
   h+='<div class="mapwrap"><div id="mapslot"></div>'+(!online()?'<div class="mapnote">Fond de carte indisponible sans connexion. Les étapes et les temps de trajet déjà calculés restent ci-dessous.</div>':tileErr?'<div class="mapnote">Ce fond de carte ne se charge pas. Essaie un autre fond juste au-dessus.</div>':'')+'</div>';
   var unplaced=[];
   [['flight','geo',function(f){return 'Aéroport · '+(f.from||'')}],['flight','geo2',function(f){return 'Aéroport · '+(f.to||'')}],['stay','geo',function(s){return s.name}],['act','geo',function(a){return a.title}]].forEach(function(p){
     list(p[0]).forEach(function(it){var q=geoQuery(p[0],it,p[1]==='geo2');if(q&&!okGeo(it[p[1]]))unplaced.push({n:p[2](it),failed:it[p[1]]&&it[p[1]].failed})});
   });
   if(S.mapDay==='all'){
-    h+='<p class="unplaced">Touche « J1 », « J2 »… pour voir le parcours d\'une journée et les temps de trajet. Tu peux déplacer un point en le faisant glisser.</p>';
+    h+='<p class="unplaced">Touche « J1 », « J2 »… pour voir le parcours d\'une journée et les temps de trajet. Pour corriger un point mal placé, ouvre le cadenas puis fais-le glisser.</p>';
   }else{
     var seq=daySeq(t,S.mapDay,ev);
     h+='<div class="stops">';
@@ -3903,6 +3915,14 @@ function viewMap(t){
   }
   return h;
 }
+function manualGeos(){
+  var out=[];if(!S.trip)return out;
+  S.trip.flights.forEach(function(x){if(x.geo&&x.geo.src==='manual')out.push([x,'geo']);if(x.geo2&&x.geo2.src==='manual')out.push([x,'geo2'])});
+  S.trip.stays.forEach(function(x){if(x.geo&&x.geo.src==='manual')out.push([x,'geo'])});
+  S.trip.activities.forEach(function(x){if(x.geo&&x.geo.src==='manual')out.push([x,'geo'])});
+  return out;
+}
+function resetGeo(it,f){if(!it)return;delete it[f];S.trip.updatedAt=new Date().toISOString();soft();needGeo()}
 function mkIcon(cls,html){var w=html.length>3&&html.indexOf('<')<0?Math.min(70,14+html.length*7):28;return L.divIcon({className:'',html:'<div class="mk '+cls+'" style="width:'+w+'px;height:28px;'+(w>28?'border-radius:14px;':'')+'">'+html+'</div>',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-14]})}
 function mountMap(){
   var slot=$('#mapslot');if(!slot)return;
@@ -3923,12 +3943,14 @@ function drawMap(){
   var t=S.trip,ev=events(t),pts=[],idx={};
   range(t.start,t.end).forEach(function(d,i){idx[d]=i+1});
   function mark(g,cls,html,title,sub,setter){
-    var m=L.marker([g.lat,g.lng],{icon:mkIcon(cls,html),draggable:true,title:title});
-    m.bindPopup('<b>'+esc(title)+'</b>'+(sub?'<br>'+esc(sub):'')+'<br><a href="https://www.google.com/maps/search/?api=1&query='+g.lat+','+g.lng+'" target="_blank" rel="noopener">Ouvrir dans Maps</a>');
+    var m=L.marker([g.lat,g.lng],{icon:mkIcon(cls,html),draggable:!!S.mapEdit,title:title});
+    m.bindPopup('<b>'+esc(title)+'</b>'+(sub?'<br>'+esc(sub):'')+'<br><a href="https://www.google.com/maps/search/?api=1&query='+g.lat+','+g.lng+'" target="_blank" rel="noopener">Ouvrir dans Maps</a>'+
+      (g.src==='manual'?'<br><span style="color:#5a6672">Placé à la main.</span> <button type="button" class="popreset">Remettre à l\'adresse</button>':''));
+    m.on('popupopen',function(e){var bt=e.popup.getElement().querySelector('.popreset');if(bt)bt.addEventListener('click',function(){map.closePopup();resetGeo(setter.it,setter.f);toast('Point remis à la position de son adresse.')})});
     m.on('dragend',function(e){var ll=e.target.getLatLng();setter({lat:+ll.lat.toFixed(6),lng:+ll.lng.toFixed(6),src:'manual'});toast('Position mise à jour.')});
     m.addTo(layer);pts.push([g.lat,g.lng]);
   }
-  function setterFor(it,f){return function(g){it[f]=g;S.trip.updatedAt=new Date().toISOString();soft()}}
+  function setterFor(it,f){var fn=function(g){it[f]=g;S.trip.updatedAt=new Date().toISOString();soft()};fn.it=it;fn.f=f;return fn}
   if(S.mapDay==='all'){
     t.stays.forEach(function(s){if(okGeo(s.geo))mark(s.geo,'mk-stay',IC.bedW,s.name||'Logement',[shortDT(s.checkin),shortDT(s.checkout)].filter(Boolean).join(' → '),setterFor(s,'geo'))});
     t.flights.forEach(function(f){
@@ -4051,7 +4073,7 @@ function renderSheet(){
       h+='<label class="pick">'+IC.plus+'<span>Joindre un PDF ou une photo</span><input type="file" id="sfile" accept="application/pdf,image/*" multiple></label><span class="hint">Pour un mail : fais une capture d\'écran, ou dans Gmail ⋮ › Imprimer › Enregistrer en PDF.</span></div></div>';
       if(GEO_FIELDS[k]){
         var g=sheet.draft.geo;
-        h+='<p class="geo full">'+(okGeo(g)?(g.src==='manual'?'Position placée à la main sur la carte.':g.src==='link'?'Position prise dans le lien Google Maps.':'Position trouvée automatiquement. Vérifie-la dans l\'onglet Carte.'):g&&g.failed?'Lieu introuvable : précise l\'adresse ou colle le lien Google Maps.':'La position sera cherchée à l\'enregistrement (connexion nécessaire).')+'</p>';
+        h+='<p class="geo full">'+(okGeo(g)?(g.src==='manual'?'Position placée à la main sur la carte. <button type="button" class="linkbtn" data-resetgeo>Remettre la position de l\'adresse</button>':g.src==='link'?'Position prise dans le lien Google Maps.':'Position trouvée automatiquement. Vérifie-la dans l\'onglet Carte.'):g&&g.failed?'Lieu introuvable : précise l\'adresse ou colle le lien Google Maps.':sheet.geoReset?'La position sera recalculée à partir de l\'adresse en validant (connexion nécessaire).':'La position sera cherchée à l\'enregistrement (connexion nécessaire).')+'</p>';
       }
     }
     h+='</form>'+(sheet.err?'<p class="err">'+esc(sheet.err)+'</p>':'')+(sheet.busy?'<p class="busy">'+esc(sheet.busy)+'</p>':'');
@@ -4508,9 +4530,14 @@ function qrSvg(text){
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-shareapp],[data-qr],[data-backup],[data-exportcopy],[data-save],[data-export],[data-tab],[data-add],[data-edit],[data-attach],[data-trip],[data-reset],[data-close],[data-doreset],[data-askdel],[data-delitem],[data-rmfile],[data-jump],[data-copy],[data-open],[data-vclose],[data-vzoom],[data-vdl],[data-mapday],[data-base],[data-preset],[data-rm]');
+  var t=e.target.closest('[data-maplock],[data-resetask],[data-resetall],[data-resetcancel],[data-resetgeo],[data-shareapp],[data-qr],[data-backup],[data-exportcopy],[data-save],[data-export],[data-tab],[data-add],[data-edit],[data-attach],[data-trip],[data-reset],[data-close],[data-doreset],[data-askdel],[data-delitem],[data-rmfile],[data-jump],[data-copy],[data-open],[data-vclose],[data-vzoom],[data-vdl],[data-mapday],[data-base],[data-preset],[data-rm]');
   if(!t){if(e.target.id==='sheet')closeSheet();return}
   var d=t.dataset;
+  if(t.hasAttribute('data-maplock')){S.mapEdit=!S.mapEdit;S.confirmGeo=false;render();toast(S.mapEdit?'Déplacement activé : glisse un point pour le corriger.':'Positions verrouillées.');return}
+  if(t.hasAttribute('data-resetask')){S.confirmGeo=true;render();return}
+  if(t.hasAttribute('data-resetcancel')){S.confirmGeo=false;render();return}
+  if(t.hasAttribute('data-resetall')){var mg=manualGeos();mg.forEach(function(p){delete p[0][p[1]]});S.confirmGeo=false;S.trip.updatedAt=new Date().toISOString();soft();needGeo();toast(mg.length+' point(s) remis à la position de leur adresse.'+(online()?'':' Ils seront replacés dès que tu auras du réseau.'));return}
+  if(t.hasAttribute('data-resetgeo')){capture();delete sheet.draft.geo;sheet.geoReset=true;renderSheet();return}
   if(t.hasAttribute('data-shareapp')){navigator.share({title:'Carnet de voyage',text:'L\'appli Carnet de voyage : vols, logements, programme, billets et cartes, même hors ligne.',url:APP_URL}).catch(function(){});return}
   if(t.hasAttribute('data-qr')){S.qr=!S.qr;render();return}
   if(t.hasAttribute('data-save')){saveFile();return}
