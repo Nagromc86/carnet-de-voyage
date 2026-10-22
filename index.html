@@ -3353,7 +3353,17 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='22/10/2026 17:54';
+var APP_VERSION='22/10/2026 22:33';
+var swReg=null;
+function checkUpdate(btn){
+  if(!online()){toast('Pas de connexion : la mise à jour se fera plus tard.');return}
+  if(btn){btn.disabled=true;btn.textContent='Recherche…'}
+  fetch('./index.html',{cache:'no-store'}).then(function(r){return r.text()}).then(function(txt){
+    var m=/var APP_VERSION='([^']*)'/.exec(txt),v=m?m[1]:'';
+    if(v&&v!==APP_VERSION){toast('Nouvelle version '+v+' trouvée, installation…');(swReg?swReg.update():Promise.resolve()).catch(function(){}).then(function(){setTimeout(function(){location.reload()},1500)})}
+    else{toast('L\'appli est à jour.');if(btn){btn.disabled=false;btn.textContent='Rechercher une mise à jour'}}
+  }).catch(function(){toast('Impossible de vérifier la mise à jour.');if(btn){btn.disabled=false;btn.textContent='Rechercher une mise à jour'}});
+}
 var APP_URL='https://nagromc86.github.io/carnet-de-voyage/';
 var KEY={flight:'flights',stay:'stays',act:'activities',back:'activities',info:'infos'};
 var IMG_TYPES=['image/jpeg','image/png','image/webp','image/gif'];
@@ -3906,7 +3916,7 @@ function viewInfos(t){
   h+='<article class="card"><span class="eyebrow">L\'appli</span><h3>Partager l\'appli</h3><p class="note">Envoie ce lien à un autre voyageur : il l\'ouvre dans Chrome puis ⋮ › Installer l\'application. Il démarre avec un carnet vide. Pour lui donner ce voyage, envoie-lui aussi une copie (Sauvegarde › Exporter une copie), qu\'il importera.</p>'+
     '<p class="urlrow"><span class="sel">'+esc(APP_URL)+'</span></p><div class="acts">'+(navigator.share?'<button type="button" class="act" data-shareapp>Partager</button>':'')+
     '<button type="button" class="act" data-copy="'+esc(APP_URL)+'">Copier le lien</button><button type="button" class="act" data-qr aria-expanded="'+(S.qr?'true':'false')+'">'+(S.qr?'Masquer le QR code':'QR code')+'</button></div>'+
-    '<span class="ostate" style="color:var(--muted)">Version de l\'appli : '+esc(APP_VERSION)+'</span>'+
+    '<span class="ostate" style="color:var(--muted)">Version de l\'appli : '+esc(APP_VERSION)+'</span>'+(PWA?'<div class="acts"><button type="button" class="act ghost" data-update>Rechercher une mise à jour</button></div>':'')+
     (S.qr?'<div class="qrbox">'+qrSvg(APP_URL)+'<span class="hint">À scanner avec l\'appareil photo de l\'autre téléphone.</span></div>':'')+'</article>';
   if(!t.infos.length)h+='<div class="empty"><p>Passeports, assurance, numéros d\'urgence, location de voiture : tout ce qu\'il faut avoir sous la main.</p><button type="button" class="btn ghost" data-add="info">Ajouter une info</button></div>';
   t.infos.forEach(function(i){h+='<article class="card"><h3>'+esc(i.title||'Info')+'</h3>'+(i.text?'<p class="note">'+esc(i.text)+'</p>':'')+actions('info',i)+'</article>'});
@@ -4584,9 +4594,10 @@ function qrSvg(text){
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-arch],[data-maplock],[data-resetask],[data-resetall],[data-resetcancel],[data-resetgeo],[data-shareapp],[data-qr],[data-backup],[data-exportcopy],[data-save],[data-export],[data-tab],[data-add],[data-edit],[data-attach],[data-trip],[data-reset],[data-close],[data-doreset],[data-askdel],[data-delitem],[data-rmfile],[data-jump],[data-copy],[data-open],[data-vclose],[data-vzoom],[data-vdl],[data-mapday],[data-base],[data-preset],[data-rm]');
+  var t=e.target.closest('[data-update],[data-arch],[data-maplock],[data-resetask],[data-resetall],[data-resetcancel],[data-resetgeo],[data-shareapp],[data-qr],[data-backup],[data-exportcopy],[data-save],[data-export],[data-tab],[data-add],[data-edit],[data-attach],[data-trip],[data-reset],[data-close],[data-doreset],[data-askdel],[data-delitem],[data-rmfile],[data-jump],[data-copy],[data-open],[data-vclose],[data-vzoom],[data-vdl],[data-mapday],[data-base],[data-preset],[data-rm]');
   if(!t){if(e.target.id==='sheet')closeSheet();return}
   var d=t.dataset;
+  if(t.hasAttribute('data-update')){checkUpdate(t);return}
   if(t.hasAttribute('data-arch')){S.archOpen=!S.archOpen;render();return}
   if(t.hasAttribute('data-maplock')){S.mapEdit=!S.mapEdit;S.confirmGeo=false;render();toast(S.mapEdit?'Déplacement activé : glisse un point pour le corriger.':'Positions verrouillées.');return}
   if(t.hasAttribute('data-resetask')){S.confirmGeo=true;render();return}
@@ -4710,7 +4721,10 @@ if(PWA){
       if(sheet||!$('#modal').hidden||!$('#viewer').hidden||exporting){toast('Nouvelle version de l\'appli prête : ferme-la et rouvre-la.');return}
       setTimeout(function(){location.reload()},400);
     });
-    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){if(reg.update)reg.update().catch(function(){})}).catch(function(){});
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){
+      swReg=reg;if(reg.update)reg.update().catch(function(){});
+      document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&online())reg.update().catch(function(){})});
+    }).catch(function(){});
   }
 }else render();
 if(!PWA&&S.trip){
