@@ -3333,6 +3333,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
+var APP_VERSION='22/10/2026 15:21';
 var APP_URL='https://nagromc86.github.io/carnet-de-voyage/';
 var KEY={flight:'flights',stay:'stays',act:'activities',back:'activities',info:'infos'};
 var IMG_TYPES=['image/jpeg','image/png','image/webp','image/gif'];
@@ -3844,6 +3845,7 @@ function viewInfos(t){
   h+='<article class="card"><span class="eyebrow">L\'appli</span><h3>Partager l\'appli</h3><p class="note">Envoie ce lien à un autre voyageur : il l\'ouvre dans Chrome puis ⋮ › Installer l\'application. Il démarre avec un carnet vide. Pour lui donner ce voyage, envoie-lui aussi une copie (Sauvegarde › Exporter une copie), qu\'il importera.</p>'+
     '<p class="urlrow"><span class="sel">'+esc(APP_URL)+'</span></p><div class="acts">'+(navigator.share?'<button type="button" class="act" data-shareapp>Partager</button>':'')+
     '<button type="button" class="act" data-copy="'+esc(APP_URL)+'">Copier le lien</button><button type="button" class="act" data-qr aria-expanded="'+(S.qr?'true':'false')+'">'+(S.qr?'Masquer le QR code':'QR code')+'</button></div>'+
+    '<span class="ostate" style="color:var(--muted)">Version de l\'appli : '+esc(APP_VERSION)+'</span>'+
     (S.qr?'<div class="qrbox">'+qrSvg(APP_URL)+'<span class="hint">À scanner avec l\'appareil photo de l\'autre téléphone.</span></div>':'')+'</article>';
   if(!t.infos.length)h+='<div class="empty"><p>Passeports, assurance, numéros d\'urgence, location de voiture : tout ce qu\'il faut avoir sous la main.</p><button type="button" class="btn ghost" data-add="info">Ajouter une info</button></div>';
   t.infos.forEach(function(i){h+='<article class="card"><h3>'+esc(i.title||'Info')+'</h3>'+(i.text?'<p class="note">'+esc(i.text)+'</p>':'')+actions('info',i)+'</article>'});
@@ -4394,7 +4396,7 @@ function bannerJpeg(t){
   });
 }
 function buildPdf(t,progress){
-  var Lb,out,att,F,maps,ban=null;
+  var Lb,out,att,F,maps,ban=null,banErr='';
   return Promise.resolve().then(function(){Lb=loadLib('lib-pdflib','PDFLib');return Lb.PDFDocument.create()}).then(function(doc){
     out=doc;out.setTitle(t.title||'Carnet de voyage');out.setCreator('Carnet de voyage');
     att=attachList(t);
@@ -4414,7 +4416,7 @@ function buildPdf(t,progress){
   }).then(function(){
     maps=maps.filter(function(m){return m.img});
     progress('Bannière…');
-    return bannerJpeg(t).then(function(bytes){return out.embedJpg(bytes)}).then(function(img){ban={img:img,h:PW*BAN_H/BAN_W}},function(){ban=null});
+    return bannerJpeg(t).then(function(bytes){return out.embedJpg(bytes)}).then(function(img){ban={img:img,h:PW*BAN_H/BAN_W}},function(err){ban=null;banErr=(err&&err.message)||String(err)});
   }).then(function(){
     return Lb.PDFDocument.create().then(function(sc){return pdfFonts(sc,Lb).then(function(sf){return summary(sc,sf,Lb,t,att,false,{days:{},first:maps.length?1:0},ban?{h:ban.h}:null).n})});
   }).then(function(nSum){
@@ -4458,7 +4460,7 @@ function buildPdf(t,progress){
     });
     var ctx=out.context;
     w.goto.forEach(function(g){var tp=out.getPage(Math.min(g.target,out.getPageCount())-1);out.getPage(g.pi).node.addAnnot(ctx.register(ctx.obj({Type:'Annot',Subtype:'Link',Rect:g.rect,Border:[0,0,0],Dest:[tp.ref,'XYZ',null,null,null]})))});
-    return out.save().then(function(bytes){return{bytes:bytes,failed:att.filter(function(a){return a.err}).length,noTiles:maps.some(function(m){return !m.tiles})}});
+    return out.save().then(function(bytes){return{bytes:bytes,failed:att.filter(function(a){return a.err}).length,noTiles:maps.some(function(m){return !m.tiles}),banErr:banErr}});
   });
 }
 function doExport(){
@@ -4469,6 +4471,7 @@ function doExport(){
       download(new Blob([r.bytes],{type:'application/pdf'}),'Carnet - '+safeName(S.trip.title)+'.pdf');
       exporting=false;S.trip.exportedAt=new Date().toISOString();
       if(r.failed){S.msg=r.failed+' fichier(s) n\'ont pas pu être inclus dans le PDF.';S.msgErr=true}
+      else if(r.banErr){S.msg='La bannière n\'a pas pu être ajoutée au PDF ('+r.banErr+').';S.msgErr=true}
       else if(r.noTiles){S.msg='Les cartes du PDF ont été dessinées sans fond de carte (pas de connexion). Retélécharge le PDF une fois connecté pour avoir les plans.';S.msgErr=false}
       soft();toast('PDF téléchargé.');
     },function(){exporting=false;S.msg='Le PDF n\'a pas pu être créé.';S.msgErr=true;render()});
@@ -4616,7 +4619,15 @@ function start(){if(started)return;started=true;checkReminder();needGeo()}
 if(PWA){
   $('#app').innerHTML='<p class="busy" style="text-align:center;padding:60px 16px">Ouverture du carnet…</p>';
   idbGet('pwa:current').then(function(c){if(c&&c.trip){S.trip=norm(c.trip);S.files=c.files||{}}}).catch(function(){}).then(function(){render();if(S.trip)start()});
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
+  if('serviceWorker' in navigator){
+    var hadCtrl=!!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      if(!hadCtrl){hadCtrl=true;return}
+      if(sheet||!$('#modal').hidden||!$('#viewer').hidden||exporting){toast('Nouvelle version de l\'appli prête : ferme-la et rouvre-la.');return}
+      setTimeout(function(){location.reload()},400);
+    });
+    navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){if(reg.update)reg.update().catch(function(){})}).catch(function(){});
+  }
 }else render();
 if(!PWA&&S.trip){
   idbGet('state:'+S.trip.uid).then(function(c){
