@@ -3356,7 +3356,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='23/10/2026 00:34';
+var APP_VERSION='23/10/2026 10:24';
 var swReg=null;
 function checkUpdate(btn){
   if(!online()){toast('Pas de connexion : la mise à jour se fera plus tard.');return}
@@ -3381,6 +3381,12 @@ if(S.trip)S.trip=norm(S.trip);
 try{var t0=localStorage.getItem('cv-tab');if(t0)S.tab=t0}catch(e){}
 
 /* ---------- helpers ---------- */
+function linkify(t){
+  return esc(t).replace(/https?:\/\/[^\s<]+/g,function(u){
+    var raw=u.replace(/&amp;/g,'&'),lab=/google\.[a-z.]+\/maps|maps\.google\.|maps\.app\.goo\.gl/.test(raw)?'Voir sur Google Maps':/uber\.com/.test(raw)?'Ouvrir dans Uber':raw.replace(/^https?:\/\/(www\.)?/,'').slice(0,40);
+    return '<a href="'+u+'" target="_blank" rel="noopener">'+esc(lab)+'</a>';
+  });
+}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
@@ -3815,12 +3821,12 @@ function evHtml(e){
   if(e.kind==='act'&&it.stayId){
     var st=e.stay;
     return '<article class="ev"><div class="time">'+esc(it.start||'—')+(it.end?'<small>'+esc(it.end)+'</small>':'')+'</div><div class="body"><span class="k">Logement · passage</span>'+
-      '<h4>Retour à '+esc(st?(st.name||'mon logement'):'un logement supprimé')+'</h4>'+(st&&st.address?'<p class="where">'+esc(st.address)+'</p>':'')+(it.notes?'<p class="note">'+esc(it.notes)+'</p>':'')+actions('back',it)+'</div></article>';
+      '<h4>Retour à '+esc(st?(st.name||'mon logement'):'un logement supprimé')+'</h4>'+(st&&st.address?'<p class="where">'+esc(st.address)+'</p>':'')+(it.notes?'<p class="note">'+linkify(it.notes)+'</p>':'')+actions('back',it)+'</div></article>';
   }
   if(e.kind==='act'){
     var where=[it.place,it.address].filter(Boolean).join(' · ');
     return '<article class="ev"><div class="time">'+esc(it.start||'—')+(it.end?'<small>'+esc(it.end)+'</small>':'')+'</div><div class="body">'+
-      '<h4>'+esc(it.title||'Activité')+'</h4>'+(it.hideMap?'<span class="k" style="color:var(--muted)">Pas sur la carte</span>':'')+(where?'<p class="where">'+esc(where)+'</p>':'')+(it.notes?'<p class="note">'+esc(it.notes)+'</p>':'')+actions('act',it)+'</div></article>';
+      '<h4>'+esc(it.title||'Activité')+'</h4>'+(it.hideMap?'<span class="k" style="color:var(--muted)">Pas sur la carte</span>':'')+(where?'<p class="where">'+esc(where)+'</p>':'')+(it.notes?'<p class="note">'+linkify(it.notes)+'</p>':'')+actions('act',it)+'</div></article>';
   }
   if(e.kind==='dep'){
     var fl=[it.airline,it.number].filter(Boolean).join(' ');
@@ -3906,7 +3912,7 @@ function viewFlights(t){
       '<div class="route"><div class="end"><span class="iata">'+esc(iata(f.from))+'</span><span class="apt">'+esc(f.from||'Départ')+'</span><span class="when">'+(f.dep?esc(fShort.format(pd(dpart(f.dep))))+' <b>'+esc(tpart(f.dep))+'</b>':'—')+'</span></div>'+
       '<span class="plane" aria-hidden="true">'+IC.plane+'</span>'+
       '<div class="end r"><span class="iata">'+esc(iata(f.to))+'</span><span class="apt">'+esc(f.to||'Arrivée')+'</span><span class="when">'+(f.arr?esc(fShort.format(pd(dpart(f.arr))))+' <b>'+esc(tpart(f.arr))+'</b>':'—')+'</span></div></div>'+
-      '<div class="perf"></div><div class="rest">'+(kv?'<dl class="kv">'+kv+'</dl>':'')+(f.notes?'<p class="note">'+esc(f.notes)+'</p>':'')+actions('flight',f)+'</div></article>';
+      '<div class="perf"></div><div class="rest">'+(kv?'<dl class="kv">'+kv+'</dl>':'')+(f.notes?'<p class="note">'+linkify(f.notes)+'</p>':'')+actions('flight',f)+'</div></article>';
   });
   return h;
 }
@@ -3922,7 +3928,7 @@ function viewStays(t){
     h+='<article class="card"><span class="eyebrow">'+(n>0?n+' nuit'+(n>1?'s':''):'Logement')+'</span><h3>'+esc(s.name||'Logement')+'</h3>'+
       (s.address?'<p class="where">'+esc(s.address)+'</p>':'')+
       '<div class="stayd"><div><span>Arrivée</span><b>'+esc(shortDT(s.checkin)||'—')+'</b></div><div><span>Départ</span><b>'+esc(shortDT(s.checkout)||'—')+'</b></div></div>'+
-      (kv?'<dl class="kv">'+kv+'</dl>':'')+(s.notes?'<p class="note">'+esc(s.notes)+'</p>':'')+actions('stay',s)+'</article>';
+      (kv?'<dl class="kv">'+kv+'</dl>':'')+(s.notes?'<p class="note">'+linkify(s.notes)+'</p>':'')+actions('stay',s)+'</article>';
   });
   return h;
 }
@@ -3934,7 +3940,7 @@ function viewInfos(t){
     '<span class="ostate" style="color:var(--muted)">Version de l\'appli : '+esc(APP_VERSION)+'</span>'+(PWA?'<div class="acts"><button type="button" class="act ghost" data-update>Rechercher une mise à jour</button></div>':'')+
     (S.qr?'<div class="qrbox">'+qrSvg(APP_URL)+'<span class="hint">À scanner avec l\'appareil photo de l\'autre téléphone.</span></div>':'')+'</article>';
   if(!t.infos.length)h+='<div class="empty"><p>Passeports, assurance, numéros d\'urgence, location de voiture : tout ce qu\'il faut avoir sous la main.</p><button type="button" class="btn ghost" data-add="info">Ajouter une info</button></div>';
-  t.infos.forEach(function(i){h+='<article class="card"><h3>'+esc(i.title||'Info')+'</h3>'+(i.text?'<p class="note">'+esc(i.text)+'</p>':'')+actions('info',i)+'</article>'});
+  t.infos.forEach(function(i){h+='<article class="card"><h3>'+esc(i.title||'Info')+'</h3>'+(i.text?'<p class="note">'+linkify(i.text)+'</p>':'')+actions('info',i)+'</article>'});
   h+='<div class="danger-zone"><p>Voyage terminé ? Efface tout (étapes, fichiers et bannière) pour préparer le suivant. Pense à garder une copie de ce fichier si tu veux t\'en souvenir.</p><button type="button" class="btn danger" data-reset>Effacer et créer un nouveau voyage</button></div>';
   return h;
 }
