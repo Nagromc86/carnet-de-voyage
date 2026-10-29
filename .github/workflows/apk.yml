@@ -17,34 +17,35 @@ concurrency:
 
 jobs:
   apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # Clé de signature personnelle de l'appli (voir android/README.md). Elle doit rester la même
       # pour que chaque nouvelle APK s'installe par-dessus l'ancienne sans perdre les données.
       KS_PASS: 3xYSzi7TXOuclB8B9F4JzsJg
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
-
       - name: Préparer le projet Android
         working-directory: android
+        shell: bash
         run: |
-          npm install --no-audit --no-fund
+          # chaque étape importante écrit son journal ; en cas d'échec, la fin du journal est remontée en annotation
+          fail() { MSG=$(tail -60 "$1" | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g'); echo "::error title=$2::$MSG"; exit 1; }
+          echo "ANDROID_HOME=$ANDROID_HOME"; ls "$ANDROID_HOME/build-tools" || true
+          set -o pipefail
+          ( npm install --no-audit --no-fund ) > npm.log 2>&1 || fail npm.log npm
           mkdir -p www
           cp ../index.html ../icon-192.png ../icon-512.png ../icon-maskable.png www/
-          npx cap add android
-          npx capacitor-assets generate --android
-          npx cap sync android
+          ( npx cap add android && npx capacitor-assets generate --android && npx cap sync android ) > cap.log 2>&1 || fail cap.log capacitor
           VERSION=$(grep -o "var APP_VERSION='[0-9][^']*'" ../index.html | head -1 | cut -d"'" -f2)
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
           sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/" android/app/build.gradle
@@ -53,11 +54,14 @@ jobs:
 
       - name: Construire l'APK
         working-directory: android/android
+        shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace > gradle.log 2>&1 || { MSG=$(grep -E "FAILURE|What went wrong|error:|Error|Exception|> " gradle.log | head -40 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g'); echo "::error title=gradle::$MSG"; tail -30 gradle.log; exit 1; }
+          tail -5 gradle.log
 
       - name: Signer l'APK
+        shell: bash
         run: |
           BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
           IN=android/android/app/build/outputs/apk/release/app-release-unsigned.apk
