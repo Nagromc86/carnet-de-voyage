@@ -1,0 +1,7 @@
+{
+  "appId": "io.github.nagromc86.carnet",
+  "appName": "Carnet de voyage",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false, "backgroundColor": "#0b5d6b" }
+}
