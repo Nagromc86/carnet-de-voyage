@@ -3356,12 +3356,19 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='30/10/2026 14:49';
+var APP_VERSION='30/10/2026 14:59';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
 var plug={};
-function plugin(n){if(!plug[n])plug[n]=window.Capacitor.registerPlugin(n);return plug[n]}
+function plugin(n){
+  /* talk to the native plugins through the bridge Capacitor injects in the APK (no JS library bundled) */
+  if(plug[n])return plug[n];
+  var C=window.Capacitor;
+  if(typeof C.registerPlugin==='function')return plug[n]=C.registerPlugin(n);
+  var call=function(m){return function(o){return C.nativePromise(n,m,o||{})}};
+  return plug[n]={writeFile:call('writeFile'),share:call('share'),exitApp:call('exitApp'),addListener:function(ev,cb){return C.addListener(n,ev,cb)}};
+}
 function nativeSave(blob,name){
   return readAsDataURL(blob).then(function(d){
     return plugin('Filesystem').writeFile({path:name,data:d.slice(d.indexOf(',')+1),directory:'CACHE'});
@@ -4757,10 +4764,10 @@ if(PWA){
   $('#app').innerHTML='<p class="busy" style="text-align:center;padding:60px 16px">Ouverture du carnet…</p>';
   idbGet('pwa:current').then(function(c){if(c&&c.trip){S.trip=norm(c.trip);S.files=c.files||{}}}).catch(function(){}).then(function(){render();if(S.trip)start()});
   if(NATIVE){
-    plugin('App').addListener('backButton',function(){
+    try{plugin('App').addListener('backButton',function(){
       if(!$('#viewer').hidden)closeViewer();else if(!$('#modal').hidden)closeModal();else if(sheet)closeSheet();
       else if(S.tab!=='prog'){S.tab='prog';render();window.scrollTo(0,0)}else plugin('App').exitApp();
-    });
+    })}catch(e){}
     setTimeout(function(){if(online())fetch(APP_URL+'index.html',{cache:'no-store'}).then(function(r){return r.text()}).then(function(txt){var m=/var APP_VERSION='([^']*)'/.exec(txt);if(m&&m[1]!==APP_VERSION){S.apkUpdate=m[1];toast('Une nouvelle version de l\'appli est disponible : Infos › Télécharger la mise à jour.');if(S.tab==='infos')render()}}).catch(function(){})},4000);
   }else if('serviceWorker' in navigator){
     var hadCtrl=!!navigator.serviceWorker.controller;

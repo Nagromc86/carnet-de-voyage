@@ -1,7 +1,7 @@
 /* Carnet de voyage: works offline once installed.
    Network first for the app itself (to get updates), installed copy as fallback.
    A slow download is never wasted: it keeps going in the background and replaces the installed copy when it finishes. */
-const CACHE='carnet-v16';
+const CACHE='carnet-v17';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-maskable.png'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting()));
