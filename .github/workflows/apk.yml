@@ -18,10 +18,6 @@ concurrency:
 jobs:
   apk:
     runs-on: ubuntu-24.04
-    env:
-      # Clé de signature personnelle de l'appli (voir android/README.md). Elle doit rester la même
-      # pour que chaque nouvelle APK s'installe par-dessus l'ancienne sans perdre les données.
-      KS_PASS: 3xYSzi7TXOuclB8B9F4JzsJg
     steps:
       - uses: actions/checkout@v5
 
@@ -62,11 +58,19 @@ jobs:
 
       - name: Signer l'APK
         shell: bash
+        env:
+          # Clé de signature rangée dans le coffre secret du dépôt (Settings › Secrets and variables › Actions).
+          # Elle doit rester la même pour que chaque nouvelle APK s'installe par-dessus l'ancienne sans perdre les données.
+          KS_B64: ${{ secrets.APK_KEYSTORE }}
+          KS_PASS: ${{ secrets.APK_KEYSTORE_PASSWORD }}
         run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then echo "::error title=Signature::Ajoute les secrets APK_KEYSTORE et APK_KEYSTORE_PASSWORD dans Settings › Secrets and variables › Actions."; exit 1; fi
+          printf %s "$KS_B64" | base64 -d > "$RUNNER_TEMP/carnet.p12"
+          trap 'rm -f "$RUNNER_TEMP/carnet.p12"' EXIT
           BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
           IN=android/android/app/build/outputs/apk/release/app-release-unsigned.apk
           "$BT/zipalign" -p -f 4 "$IN" aligned.apk
-          "$BT/apksigner" sign --ks android/carnet.jks --ks-key-alias carnet --ks-pass env:KS_PASS --key-pass env:KS_PASS --out carnet-de-voyage.apk aligned.apk
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/carnet.p12" --ks-type PKCS12 --ks-key-alias carnet --ks-pass env:KS_PASS --key-pass env:KS_PASS --out carnet-de-voyage.apk aligned.apk
           "$BT/apksigner" verify --print-certs carnet-de-voyage.apk | head -3
           ls -la carnet-de-voyage.apk
 

@@ -7,6 +7,6 @@ Dernière version : https://github.com/Nagromc86/carnet-de-voyage/releases/lates
 
 - `capacitor.config.json` et `package.json` : emballage Capacitor de la page `index.html`.
 - `assets/` : icône et écran de démarrage.
-- `carnet.jks` : clé de signature de l'appli. Elle doit rester la même pour que les mises à jour s'installent par-dessus
-  l'ancienne version sans perdre les données. Elle est dans le dépôt (public) par simplicité : n'installe une APK de
-  « Carnet de voyage » que depuis les Releases de ce dépôt.
+- Signature : la clé est rangée dans le coffre secret du dépôt (secrets `APK_KEYSTORE`, en base64, et `APK_KEYSTORE_PASSWORD`).
+  Elle doit rester la même pour que les mises à jour s'installent par-dessus l'ancienne version sans perdre les données.
+  L'ancienne clé (`carnet.jks`, utilisée pour la version 1.2) est abandonnée.
