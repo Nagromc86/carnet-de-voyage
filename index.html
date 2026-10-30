@@ -724,7 +724,7 @@ svg{flex:none}
 .eyebrow{display:block;font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
 .trip .eyebrow{opacity:.92;text-shadow:0 1px 4px rgba(0,0,0,.4)}
 .trip h1{margin:2px 0 0;font-family:var(--display);font-weight:700;font-size:2.4rem;line-height:1;text-wrap:balance;text-shadow:0 2px 12px rgba(0,0,0,.35)}
-.savebar{position:sticky;top:0;z-index:25;background:var(--sign);color:var(--sign-ink);padding-top:env(safe-area-inset-top,0px)}
+.savebar{position:sticky;top:0;z-index:901;background:var(--sign);color:var(--sign-ink);padding-top:env(safe-area-inset-top,0px)}
 .savebar .col{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:7px;font-size:.88rem;font-weight:600}
 .savebar button{border:0;background:var(--sign-ink);color:var(--sign);border-radius:6px;padding:6px 12px;font-weight:700;font-size:.85rem}
 
@@ -841,7 +841,7 @@ a.act{color:var(--ink)}
 .msg.err{background:transparent;border:1px solid var(--danger);color:var(--danger)}
 
 /* map */
-.mapwrap{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--surface)}
+.mapwrap{position:relative;isolation:isolate;z-index:0;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--surface)}
 #map{height:min(58vh,520px);width:100%;background:var(--accent-soft)}
 .mapnote{position:absolute;left:10px;right:10px;bottom:10px;z-index:500;background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 10px;font-size:.85rem;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 .mk{display:flex;align-items:center;justify-content:center;border-radius:50%;font-family:var(--display);font-weight:700;font-size:15px;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.45)}
@@ -908,7 +908,7 @@ a.act{color:var(--ink)}
 .geo{font-size:.82rem;color:var(--muted);margin:0}
 
 /* nav */
-#nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:900;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 #nav .col{display:grid;grid-template-columns:repeat(5,1fr);height:var(--navh)}
 #nav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:.74rem;font-weight:600;color:var(--muted);position:relative;min-width:0}
 #nav button svg{width:22px;height:22px}
@@ -3356,7 +3356,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='30/10/2026 00:27';
+var APP_VERSION='30/10/2026 14:49';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
