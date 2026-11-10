@@ -3363,7 +3363,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='10/11/2026 20:30';
+var APP_VERSION='10/11/2026 20:45';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
@@ -3884,7 +3884,7 @@ function actions(kind,it){
     if(u)h+='<a class="act" href="'+esc(u)+'" target="_blank" rel="noopener">'+IC.car+'Uber</a>';
   }
   (it.files||[]).forEach(function(f){h+=fileChip(f)});
-  if(kind==='act'&&it.date)h+='<button type="button" class="act" data-ics="'+esc(it.id)+'">'+IC.cal+'Calendrier</button>';
+  if((kind==='act'&&it.date)||(kind==='flight'&&it.dep)||(kind==='stay'&&it.checkin))h+='<button type="button" class="act" data-ics="'+kind+':'+esc(it.id)+'">'+IC.cal+'Calendrier</button>';
   if(kind!=='back')h+='<button type="button" class="act ghost" data-attach="'+kind+':'+esc(it.id)+'">'+IC.plus+'PDF</button>';
   h+='<button type="button" class="act ghost" data-edit="'+kind+':'+esc(it.id)+'">Modifier</button>';
   return h+'</div>';
@@ -4207,34 +4207,53 @@ function icsEsc(x){return String(x==null?'':x).replace(/\\/g,'\\\\').replace(/;/
 function icsFold(l){var out=[],b=l;while(new TextEncoder().encode(b).length>73){var i=b.length;while(new TextEncoder().encode(b.slice(0,i)).length>73)i--;out.push(b.slice(0,i));b=' '+b.slice(i)}out.push(b);return out.join('\r\n')}
 function icsDT(date,time){return date.replace(/-/g,'')+'T'+time.replace(':','')+'00'}
 function icsPlus(date,time,min){var d=new Date(date+'T'+time+':00Z');d=new Date(d.getTime()+min*60000);return d.toISOString().slice(0,19).replace(/[-:]/g,'')}
-function actIcs(it){
+function icsEvent(o){
+  /* o: {id,start,end,date?,summary,loc,geo,desc[]} ; start/end = 'YYYY-MM-DDTHH:MM' (heure locale « flottante ») */
   var L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Carnet de voyage//FR','CALSCALE:GREGORIAN','METHOD:PUBLISH','BEGIN:VEVENT'];
-  L.push('UID:'+(it.id||uid())+'-'+(S.trip&&S.trip.uid||'carnet')+'@carnet-de-voyage');
+  L.push('UID:'+(o.id||uid())+'-'+(S.trip&&S.trip.uid||'carnet')+'@carnet-de-voyage');
   L.push('DTSTAMP:'+new Date().toISOString().slice(0,19).replace(/[-:]/g,'')+'Z');
-  var st=hm(it.start),en=hm(it.end);
-  if(isDate(it.date)&&it.start&&st!=null){
-    L.push('DTSTART:'+icsDT(it.date,it.start));
-    L.push('DTEND:'+(it.end&&en!=null&&en>st?icsDT(it.date,it.end):icsPlus(it.date,it.start,60)));
-  }else if(isDate(it.date)){
-    L.push('DTSTART;VALUE=DATE:'+it.date.replace(/-/g,''));
-    var n=new Date(it.date+'T00:00:00Z');n=new Date(n.getTime()+864e5);L.push('DTEND;VALUE=DATE:'+n.toISOString().slice(0,10).replace(/-/g,''));
+  if(o.start&&tpart(o.start)){
+    L.push('DTSTART:'+icsDT(dpart(o.start),tpart(o.start)));
+    L.push('DTEND:'+(o.end&&tpart(o.end)&&o.end>o.start?icsDT(dpart(o.end),tpart(o.end)):icsPlus(dpart(o.start),tpart(o.start),o.defMin||60)));
+  }else if(isDate(dpart(o.start))){
+    var d0=dpart(o.start),d1=isDate(dpart(o.end))&&dpart(o.end)>d0?dpart(o.end):d0,n=new Date(d1+'T00:00:00Z');n=new Date(n.getTime()+864e5);
+    L.push('DTSTART;VALUE=DATE:'+d0.replace(/-/g,''));L.push('DTEND;VALUE=DATE:'+n.toISOString().slice(0,10).replace(/-/g,''));
   }else return null;
-  L.push('SUMMARY:'+icsEsc(it.title||'Activité'));
-  var loc=[it.place,it.address].filter(Boolean).join(', ');if(loc)L.push('LOCATION:'+icsEsc(loc));
-  if(okGeo(it.geo))L.push('GEO:'+Number(it.geo.lat).toFixed(6)+';'+Number(it.geo.lng).toFixed(6));
-  var desc=[];if(it.notes)desc.push(it.notes);if(costNum(it.cost))desc.push('Coût : '+money(costNum(it.cost)));
-  var p=place('act',it),m=p&&mapsUrl(p);if(m)desc.push(m);
-  if(S.trip&&S.trip.title)desc.push('Carnet : '+S.trip.title);
+  L.push('SUMMARY:'+icsEsc(o.summary));
+  if(o.loc)L.push('LOCATION:'+icsEsc(o.loc));
+  if(okGeo(o.geo))L.push('GEO:'+Number(o.geo.lat).toFixed(6)+';'+Number(o.geo.lng).toFixed(6));
+  var desc=(o.desc||[]).filter(Boolean);if(S.trip&&S.trip.title)desc.push('Carnet : '+S.trip.title);
   if(desc.length)L.push('DESCRIPTION:'+icsEsc(desc.join('\n')));
   L.push('END:VEVENT','END:VCALENDAR');
   return L.map(icsFold).join('\r\n')+'\r\n';
 }
-function shareIcs(id){
-  var it=find('act',id);if(!it)return;
-  var txt=actIcs(it);if(!txt){S.msg='Cette activité n\'a pas de jour : ajoute-lui une date pour l\'envoyer au calendrier.';soft();return}
-  var name=safeName(it.title||'Activité')+'.ics',blob=new Blob([txt],{type:'text/calendar;charset=utf-8'});
+function mapsOf(kind,it){var p=place(kind,it);return p&&mapsUrl(p)}
+function actIcs(it){
+  if(!isDate(it.date))return null;
+  var st=hm(it.start),en=hm(it.end),a=st!=null?it.date+'T'+it.start:it.date;
+  return icsEvent({id:it.id,start:a,end:st!=null&&en!=null&&en>st?it.date+'T'+it.end:'',summary:it.title||'Activité',loc:[it.place,it.address].filter(Boolean).join(', '),geo:it.geo,
+    desc:[it.notes,costNum(it.cost)?'Coût : '+money(costNum(it.cost)):'',mapsOf('act',it)]});
+}
+function flightIcs(f){
+  if(!isDate(dpart(f.dep)))return null;
+  var from=iata(f.from),to=iata(f.to),title='Vol '+[f.airline,f.number].filter(Boolean).join(' ')+(from!=='—'||to!=='—'?' · '+from+' → '+to:'');
+  return icsEvent({id:f.id,start:f.dep,end:f.arr,defMin:120,summary:title.replace('Vol  ','Vol ').trim(),loc:f.from||'',geo:f.geo,
+    desc:[f.arr?'Arrivée : '+f.to+' à '+tpart(f.arr)+' (heure locale)'+(dpart(f.arr)!==dpart(f.dep)?' le '+dpart(f.arr).split('-').reverse().join('/'):''):'',f.terminal?'Terminal / porte : '+f.terminal:'',f.seat?'Siège / bagages : '+f.seat:'',f.ref?'Référence : '+f.ref:'',f.notes,mapsOf('flight',f)]});
+}
+function stayIcs(s){
+  if(!isDate(dpart(s.checkin)))return null;
+  return icsEvent({id:s.id,start:s.checkin,end:s.checkout,defMin:60,summary:'Logement · '+(s.name||'Logement'),loc:[s.name,s.address].filter(Boolean).join(', '),geo:s.geo,
+    desc:[s.checkin&&tpart(s.checkin)?'Arrivée dès '+tpart(s.checkin):'',s.checkout&&tpart(s.checkout)?'Départ avant '+tpart(s.checkout):'',s.ref?'Réservation : '+s.ref:'',s.phone?'Téléphone : '+s.phone:'',s.notes,mapsOf('stay',s)]});
+}
+var ICS_KIND={act:{fn:actIcs,name:function(x){return x.title||'Activité'},miss:'Cette activité n\'a pas de jour : ajoute-lui une date pour l\'envoyer au calendrier.'},
+  flight:{fn:flightIcs,name:function(x){return 'Vol '+[x.airline,x.number].filter(Boolean).join(' ')},miss:'Ce vol n\'a pas de date de départ : ajoute-la pour l\'envoyer au calendrier.'},
+  stay:{fn:stayIcs,name:function(x){return 'Logement '+(x.name||'')},miss:'Ce logement n\'a pas de date d\'arrivée : ajoute-la pour l\'envoyer au calendrier.'}};
+function shareIcs(ref){
+  var k=String(ref).split(':'),kind=k[0],id=k[1],K=ICS_KIND[kind],it=K&&find(kind,id);if(!it)return;
+  var txt=K.fn(it);if(!txt){S.msg=K.miss;soft();return}
+  var title=K.name(it).trim(),name=safeName(title)+'.ics',blob=new Blob([txt],{type:'text/calendar;charset=utf-8'});
   try{var f=new File([blob],name,{type:'text/calendar'});
-    if(!NATIVE&&navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:it.title||'Activité'}).catch(function(e){if(e&&e.name!=='AbortError')download(blob,name)});return}
+    if(!NATIVE&&navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:title}).catch(function(e){if(e&&e.name!=='AbortError')download(blob,name)});return}
   }catch(e){}
   download(blob,name);
 }
@@ -4463,7 +4482,6 @@ function summary(doc,F,Lb,t,att,real,mref,ban){
         w.text(it.title||'Activité',{lead:tm,indent:52,bold:true});
         if(it.end)w.text('jusqu\'à '+it.end,{indent:52,size:9,color:F.mut});
         w.text([it.place,it.address].filter(Boolean).join(' · '),{indent:52,color:F.mut});
-        if(costNum(it.cost))w.text('Coût : '+money(costNum(it.cost)),{indent:52,size:9,color:F.mut});
         w.text(it.notes,{indent:52,size:10});
         placeLinks('act',it,52);billets(it,52);
       }else if(e.kind==='dep'){
@@ -4498,7 +4516,6 @@ function summary(doc,F,Lb,t,att,real,mref,ban){
       placeLinks('stay',s,0);billets(s,0);w.gap(6);
     });
   }
-  var tc=tripCost(t);if(tc.total>0){w.rule();w.text('Coût du voyage : '+money(tc.total),{size:14,bold:true,after:2});tc.rows.forEach(function(r){if(r.n)w.text(r.l+' : '+money(r.sum),{size:10,color:F.mut})})}
   var pinf=t.infos.filter(inPdf);
   if(pinf.length){w.rule();w.text('Infos importantes',{size:16,bold:true,after:2});pinf.forEach(function(i){w.keep(50);w.gap(4);w.text(i.title||'Info',{size:12,bold:true});w.text(i.text,{});billets(i,0);w.gap(6)})}
   return w;
