@@ -3363,7 +3363,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='10/11/2026 20:45';
+var APP_VERSION='10/11/2026 20:55';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
@@ -4232,7 +4232,7 @@ function actIcs(it){
   if(!isDate(it.date))return null;
   var st=hm(it.start),en=hm(it.end),a=st!=null?it.date+'T'+it.start:it.date;
   return icsEvent({id:it.id,start:a,end:st!=null&&en!=null&&en>st?it.date+'T'+it.end:'',summary:it.title||'Activité',loc:[it.place,it.address].filter(Boolean).join(', '),geo:it.geo,
-    desc:[it.notes,costNum(it.cost)?'Coût : '+money(costNum(it.cost)):'',mapsOf('act',it)]});
+    desc:[it.notes,mapsOf('act',it)]});
 }
 function flightIcs(f){
   if(!isDate(dpart(f.dep)))return null;
