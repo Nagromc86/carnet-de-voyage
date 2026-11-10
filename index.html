@@ -789,6 +789,8 @@ svg{flex:none}
 .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .act{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 11px;font-size:.85rem;font-weight:600;text-decoration:none;min-height:34px}
 a.act{color:var(--ink)}
+.pdfbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:2px 0 10px;font-size:.85rem;color:var(--muted)}.pdfbar b{color:var(--ink)}.pdfbtns{display:flex;gap:6px}
+.pdfinc{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.85rem;color:var(--muted);cursor:pointer}.pdfinc input{width:20px;height:20px;accent-color:var(--acc,#2bb3a3)}.card.nopdf h3,.card.nopdf .note{opacity:.55}
 .act.ghost{background:transparent;color:var(--accent);border-style:dashed}
 .act.file{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);max-width:100%}
 .act.file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:13em}
@@ -3356,7 +3358,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='30/10/2026 14:59';
+var APP_VERSION='10/11/2026 08:00';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
@@ -3957,6 +3959,7 @@ function viewStays(t){
   });
   return h;
 }
+function inPdf(i){return !i.nopdf}
 function viewInfos(t){
   var h='<div class="shead"><h2>Infos importantes</h2><button type="button" class="btn" data-add="info">'+IC.plus+'Info</button></div>'+offlineCard(t);
   h+='<article class="card"><span class="eyebrow">L\'appli</span><h3>Partager l\'appli</h3><p class="note">Envoie ce lien à un autre voyageur : il l\'ouvre dans Chrome puis ⋮ › Installer l\'application. Il démarre avec un carnet vide. Pour lui donner ce voyage, envoie-lui aussi une copie (Sauvegarde › Exporter une copie), qu\'il importera.</p>'+
@@ -3966,7 +3969,8 @@ function viewInfos(t){
     (NATIVE&&S.apkUpdate?'<span class="hint">Une fois téléchargée, ouvre l\'APK pour l\'installer par-dessus : ton carnet est conservé.</span>':'')+
     (S.qr?'<div class="qrbox">'+qrSvg(APP_URL)+'<span class="hint">À scanner avec l\'appareil photo de l\'autre téléphone.</span></div>':'')+'</article>';
   if(!t.infos.length)h+='<div class="empty"><p>Passeports, assurance, numéros d\'urgence, location de voiture : tout ce qu\'il faut avoir sous la main.</p><button type="button" class="btn ghost" data-add="info">Ajouter une info</button></div>';
-  t.infos.forEach(function(i){h+='<article class="card"><h3>'+esc(i.title||'Info')+'</h3>'+(i.text?'<p class="note">'+linkify(i.text)+'</p>':'')+actions('info',i)+'</article>'});
+  if(t.infos.length){var nIn=t.infos.filter(inPdf).length;h+='<div class="pdfbar"><span><b>'+nIn+' / '+t.infos.length+'</b> info'+(t.infos.length>1?'s':'')+' dans le PDF</span><span class="pdfbtns"><button type="button" class="act ghost" data-pdfall="1">Tout cocher</button><button type="button" class="act ghost" data-pdfall="0">Tout décocher</button></span></div>'}
+  t.infos.forEach(function(i){h+='<article class="card'+(inPdf(i)?'':' nopdf')+'"><h3>'+esc(i.title||'Info')+'</h3>'+(i.text?'<p class="note">'+linkify(i.text)+'</p>':'')+actions('info',i)+'<label class="pdfinc"><input type="checkbox" data-pdfinc="'+esc(i.id)+'"'+(inPdf(i)?' checked':'')+'> Inclure dans le PDF</label></article>'});
   h+='<div class="danger-zone"><p>Voyage terminé ? Efface tout (étapes, fichiers et bannière) pour préparer le suivant. Pense à garder une copie de ce fichier si tu veux t\'en souvenir.</p><button type="button" class="btn danger" data-reset>Effacer et créer un nouveau voyage</button></div>';
   return h;
 }
@@ -4299,7 +4303,7 @@ function attachList(t){
   sortBy(t.flights,function(f){return f.dep}).forEach(function(f){add('Vol '+[f.airline,f.number].filter(Boolean).join(' ')+' · '+iata(f.from)+' -> '+iata(f.to)+(f.dep?' · '+shortDT(f.dep):''),f)});
   sortBy(t.stays,function(s){return s.checkin}).forEach(function(s){add('Logement · '+(s.name||'')+(s.checkin?' · '+shortDT(s.checkin):''),s)});
   sortBy(t.activities,function(a){return (a.date||'9999')+(a.start||'99')}).forEach(function(a){add((a.title||'Activité')+(a.date?' · '+fShort.format(pd(a.date))+(a.start?' · '+a.start:''):''),a)});
-  t.infos.forEach(function(i){add('Info · '+(i.title||''),i)});
+  t.infos.filter(inPdf).forEach(function(i){add('Info · '+(i.title||''),i)});
   return att;
 }
 function summary(doc,F,Lb,t,att,real,mref,ban){
@@ -4380,7 +4384,8 @@ function summary(doc,F,Lb,t,att,real,mref,ban){
       placeLinks('stay',s,0);billets(s,0);w.gap(6);
     });
   }
-  if(t.infos.length){w.rule();w.text('Infos importantes',{size:16,bold:true,after:2});t.infos.forEach(function(i){w.keep(50);w.gap(4);w.text(i.title||'Info',{size:12,bold:true});w.text(i.text,{});billets(i,0);w.gap(6)})}
+  var pinf=t.infos.filter(inPdf);
+  if(pinf.length){w.rule();w.text('Infos importantes',{size:16,bold:true,after:2});pinf.forEach(function(i){w.keep(50);w.gap(4);w.text(i.title||'Info',{size:12,bold:true});w.text(i.text,{});billets(i,0);w.gap(6)})}
   return w;
 }
 function toPng(bytes,type){
@@ -4643,9 +4648,13 @@ function qrSvg(text){
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-update],[data-arch],[data-maplock],[data-resetask],[data-resetall],[data-resetcancel],[data-resetgeo],[data-shareapp],[data-qr],[data-backup],[data-exportcopy],[data-save],[data-export],[data-tab],[data-add],[data-edit],[data-attach],[data-trip],[data-reset],[data-close],[data-doreset],[data-askdel],[data-delitem],[data-rmfile],[data-jump],[data-copy],[data-open],[data-vclose],[data-vzoom],[data-vdl],[data-mapday],[data-base],[data-preset],[data-rm]');
+  var t=e.target.closest('[data-update],[data-pdfinc],[data-pdfall],[data-arch],[data-maplock],[data-resetask],[data-resetall],[data-resetcancel],[data-resetgeo],[data-shareapp],[data-qr],[data-backup],[data-exportcopy],[data-save],[data-export],[data-tab],[data-add],[data-edit],[data-attach],[data-trip],[data-reset],[data-close],[data-doreset],[data-askdel],[data-delitem],[data-rmfile],[data-jump],[data-copy],[data-open],[data-vclose],[data-vzoom],[data-vdl],[data-mapday],[data-base],[data-preset],[data-rm]');
   if(!t){if(e.target.id==='sheet')closeSheet();return}
   var d=t.dataset;
+  if(t.hasAttribute('data-pdfinc')||t.hasAttribute('data-pdfall')){
+    var all=t.hasAttribute('data-pdfall'),y0=window.scrollY;
+    S.trip.infos.forEach(function(i){if(all)i.nopdf=t.getAttribute('data-pdfall')==='1'?undefined:true;else if(i.id===t.getAttribute('data-pdfinc'))i.nopdf=i.nopdf?undefined:true;if(i.nopdf===undefined)delete i.nopdf});
+    S.trip.updatedAt=new Date().toISOString();soft();window.scrollTo(0,y0);return}
   if(t.hasAttribute('data-update')){checkUpdate(t);return}
   if(t.hasAttribute('data-arch')){S.archOpen=!S.archOpen;render();return}
   if(t.hasAttribute('data-maplock')){S.mapEdit=!S.mapEdit;S.confirmGeo=false;render();toast(S.mapEdit?'Déplacement activé : glisse un point pour le corriger.':'Positions verrouillées.');return}
