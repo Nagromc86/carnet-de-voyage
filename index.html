@@ -789,6 +789,8 @@ svg{flex:none}
 .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .act{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 11px;font-size:.85rem;font-weight:600;text-decoration:none;min-height:34px}
 a.act{color:var(--ink)}
+.herobtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.trips{display:flex;flex-direction:column;gap:8px}.tripitem{display:flex;flex-direction:column;align-items:flex-start;gap:2px;position:relative;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:12px 14px;font:inherit}.tripitem b{font-size:1rem}.tripitem span{color:var(--muted);font-size:.85rem}.tripitem em{position:absolute;right:12px;top:12px;font-style:normal;font-size:.75rem;font-weight:700;color:var(--acc,#2bb3a3)}.tripitem[aria-current=true]{border-color:var(--acc,#2bb3a3)}
 .pdfbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:2px 0 10px;font-size:.85rem;color:var(--muted)}.pdfbar b{color:var(--ink)}.pdfbtns{display:flex;gap:6px}
 .pdfinc{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.85rem;color:var(--muted);cursor:pointer}.pdfinc input{width:20px;height:20px;accent-color:var(--acc,#2bb3a3)}.card.nopdf h3,.card.nopdf .note{opacity:.55}
 .act.ghost{background:transparent;color:var(--accent);border-style:dashed}
@@ -3358,7 +3360,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='10/11/2026 08:00';
+var APP_VERSION='10/11/2026 09:00';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
@@ -3669,11 +3671,50 @@ function idbGet(k){return idb().then(function(db){return new Promise(function(re
 function idbSet(k,v){return idb().then(function(db){return new Promise(function(res,rej){var tx=db.transaction('kv','readwrite');tx.objectStore('kv').put(v,k);tx.oncomplete=function(){res()};tx.onerror=function(){rej(tx.error)}})})}
 function idbDel(k){return idb().then(function(db){return new Promise(function(res){var tx=db.transaction('kv','readwrite');tx.objectStore('kv').delete(k);tx.oncomplete=function(){res()};tx.onerror=function(){res()}})})}
 var idbTimer=null;
+/* plusieurs carnets (appli) : un enregistrement par carnet + un petit index */
+var IDX={ids:[],cur:null};
+function tripKey(id){return 'pwa:trip:'+id}
+function metaOf(t){return{id:t.uid,title:t.title||'',destination:t.destination||'',start:t.start||'',end:t.end||''}}
+function idxTouch(t){var m=metaOf(t),i=IDX.ids.findIndex(function(x){return x.id===t.uid});if(i>=0)IDX.ids[i]=m;else IDX.ids.push(m);IDX.cur=t.uid}
+function idxSave(){return idbSet('pwa:index',IDX)}
+function keepNow(){
+  clearTimeout(idbTimer);
+  if(!PWA||!S.trip)return Promise.resolve();
+  idxTouch(S.trip);
+  return idbSet(tripKey(S.trip.uid),{trip:JSON.parse(JSON.stringify(S.trip)),files:S.files,at:Date.now()}).then(idxSave).catch(function(){});
+}
+function loadStore(){
+  return idbGet('pwa:index').then(function(ix){
+    if(ix&&Array.isArray(ix.ids)){IDX=ix;return}
+    return idbGet('pwa:current').then(function(c){
+      if(!(c&&c.trip))return;
+      var t=c.trip;if(!t.uid)t.uid=uid();
+      return idbSet(tripKey(t.uid),{trip:t,files:c.files||{},at:c.at||Date.now()}).then(function(){IDX={ids:[metaOf(t)],cur:t.uid};return idxSave()}).then(function(){return idbDel('pwa:current')});
+    });
+  }).then(function(){
+    if(!IDX.cur)return;
+    return idbGet(tripKey(IDX.cur)).then(function(c){
+      if(c&&c.trip){S.trip=norm(c.trip);S.files=c.files||{}}
+      else{IDX.ids=IDX.ids.filter(function(x){return x.id!==IDX.cur});IDX.cur=IDX.ids.length?IDX.ids[0].id:null}
+    });
+  });
+}
+function openTrip(id){
+  return keepNow().then(function(){return idbGet(tripKey(id))}).then(function(c){
+    if(!(c&&c.trip)){IDX.ids=IDX.ids.filter(function(x){return x.id!==id});idxSave();throw new Error('Ce carnet est introuvable.')}
+    S.trip=norm(c.trip);S.files=c.files||{};IDX.cur=id;idxSave();
+    S.tab='prog';S.scrolled=false;S.msg='';S.mapDay='all';S.archOpen=false;sheet=null;renderSheet();render();window.scrollTo(0,0);needGeo();
+  });
+}
+function newTrip(){
+  return keepNow().then(function(){S.trip=null;S.files={};S.msg='';S.tab='prog';sheet=null;renderSheet();render();window.scrollTo(0,0)});
+}
 function keepCopy(){
   clearTimeout(idbTimer);
   idbTimer=setTimeout(function(){
     if(!S.trip)return;
-    idbSet(PWA?'pwa:current':'state:'+S.trip.uid,{trip:JSON.parse(JSON.stringify(S.trip)),files:S.files,at:Date.now()}).then(function(){
+    if(PWA)idxTouch(S.trip);
+    idbSet(PWA?tripKey(S.trip.uid):'state:'+S.trip.uid,{trip:JSON.parse(JSON.stringify(S.trip)),files:S.files,at:Date.now()}).then(function(){if(PWA)return idxSave()}).then(function(){
       if(PWA&&!keepCopy.asked&&navigator.storage&&navigator.storage.persist){keepCopy.asked=true;navigator.storage.persist().catch(function(){})}
     },function(){if(PWA)toast('Impossible d\'enregistrer sur ce téléphone (stockage plein ?). Exporte une copie.')});
   },PWA?250:500);
@@ -3723,7 +3764,7 @@ function exportCopy(){
   toast(NATIVE?'Choisis où enregistrer la copie (Drive, Fichiers…).':'Copie exportée dans tes Téléchargements.');
 }
 function importFile(file){
-  return file.text().then(function(txt){
+  return keepNow().then(function(){return file.text()}).then(function(txt){
     var d=null,f={};
     if(/^\s*\{/.test(txt)){var o=JSON.parse(txt);d=o.trip;f=o.files||{}}
     else{
@@ -3732,10 +3773,11 @@ function importFile(file){
       d=JSON.parse(a.textContent);f=b?JSON.parse(b.textContent):{};
     }
     if(!d||typeof d!=='object')throw new Error('Ce carnet est vide.');
-    S.trip=norm(d);S.files=f||{};S.tab='prog';S.scrolled=false;S.msg='';
+    var had=PWA&&d.uid&&IDX.ids.some(function(x){return x.id===d.uid});
+    S.trip=norm(d);S.files=f||{};S.tab='prog';S.scrolled=false;S.msg='';S.mapDay='all';
     if(!PWA)S.changed=true;
     keepCopy();render();needGeo();
-    toast('Carnet « '+(S.trip.title||'voyage')+' » importé.');
+    toast('Carnet « '+(S.trip.title||'voyage')+' » '+(PWA?(had?'mis à jour.':'ajouté à tes carnets.'):'importé.'));
   });
 }
 
@@ -3828,7 +3870,7 @@ function hero(t){
   return (S.changed?'<div class="savebar gut"><div class="col"><span>Modifications non enregistrées dans le fichier</span><button type="button" data-save>Enregistrer</button></div></div>':'')+
     '<header class="hero" style="'+esc(bannerStyle(t))+'">'+(code&&!(t.banner&&t.banner.file)?'<span class="ghost-code" aria-hidden="true">'+esc(code)+'</span>':'')+
     '<div class="hero-in gut"><div class="col"><div class="hero-top">'+(c?'<span class="count">'+esc(c)+'</span>':'<span></span>')+
-    (PWA?'<button type="button" class="savebtn" data-backup><i></i>Sauvegarde</button>':'<button type="button" class="savebtn'+(S.changed?' dirty':'')+'" data-save><i></i>'+(S.changed?'Enregistrer':'Enregistré')+'</button>')+'</div>'+
+    (PWA?'<span class="herobtns"><button type="button" class="savebtn" data-trips>Carnets'+(IDX.ids.length>1?' · '+IDX.ids.length:'')+'</button><button type="button" class="savebtn" data-backup><i></i>Sauvegarde</button></span>':'<button type="button" class="savebtn'+(S.changed?' dirty':'')+'" data-save><i></i>'+(S.changed?'Enregistrer':'Enregistré')+'</button>')+'</div>'+
     '<button type="button" class="trip" data-trip aria-label="Modifier le voyage et la bannière"><span class="eyebrow">'+esc(t.destination||'Destination')+(dates?' · '+esc(dates):'')+'</span><h1>'+esc(t.title||'Mon voyage')+'</h1></button></div></div></header>';
 }
 function actions(kind,it){
@@ -3971,7 +4013,7 @@ function viewInfos(t){
   if(!t.infos.length)h+='<div class="empty"><p>Passeports, assurance, numéros d\'urgence, location de voiture : tout ce qu\'il faut avoir sous la main.</p><button type="button" class="btn ghost" data-add="info">Ajouter une info</button></div>';
   if(t.infos.length){var nIn=t.infos.filter(inPdf).length;h+='<div class="pdfbar"><span><b>'+nIn+' / '+t.infos.length+'</b> info'+(t.infos.length>1?'s':'')+' dans le PDF</span><span class="pdfbtns"><button type="button" class="act ghost" data-pdfall="1">Tout cocher</button><button type="button" class="act ghost" data-pdfall="0">Tout décocher</button></span></div>'}
   t.infos.forEach(function(i){h+='<article class="card'+(inPdf(i)?'':' nopdf')+'"><h3>'+esc(i.title||'Info')+'</h3>'+(i.text?'<p class="note">'+linkify(i.text)+'</p>':'')+actions('info',i)+'<label class="pdfinc"><input type="checkbox" data-pdfinc="'+esc(i.id)+'"'+(inPdf(i)?' checked':'')+'> Inclure dans le PDF</label></article>'});
-  h+='<div class="danger-zone"><p>Voyage terminé ? Efface tout (étapes, fichiers et bannière) pour préparer le suivant. Pense à garder une copie de ce fichier si tu veux t\'en souvenir.</p><button type="button" class="btn danger" data-reset>Effacer et créer un nouveau voyage</button></div>';
+  h+='<div class="danger-zone"><p>'+(PWA?'Voyage terminé ? Supprime ce carnet (étapes, fichiers et bannière). Tes autres carnets ne sont pas touchés. Exporte une copie avant si tu veux le garder.':'Voyage terminé ? Efface tout (étapes, fichiers et bannière) pour préparer le suivant. Pense à garder une copie de ce fichier si tu veux t\'en souvenir.')+'</p><button type="button" class="btn danger" data-reset>'+(PWA?'Supprimer ce carnet':'Effacer et créer un nouveau voyage')+'</button></div>';
   return h;
 }
 
@@ -4099,6 +4141,7 @@ function navHtml(){
 function setupHtml(){
   return (S.changed?'<div class="savebar gut"><div class="col"><span>Ancien voyage effacé : enregistre pour mettre le fichier à jour</span><button type="button" data-save>Enregistrer</button></div></div>':'')+
     '<section class="setup gut"><div class="col"><div class="board"><span>Prochain départ</span><span>À définir</span></div>'+
+    (PWA&&IDX.ids.length?'<p style="margin:0 0 10px"><button type="button" class="act ghost" data-trips>← Mes carnets ('+IDX.ids.length+')</button></p>':'')+
     '<h1>Nouveau voyage</h1><p class="lead">Donne un nom et des dates. Tu ajouteras ensuite les vols, les logements, le programme, les billets en PDF et une bannière.</p>'+
     '<form class="form" id="setup">'+fieldsHtml('trip',{})+'<div class="full"><button class="btn" type="submit">Créer le voyage</button></div></form>'+
     (PWA?'<div class="empty"><p>Tu as déjà un carnet (fichier « Carnet - ….html ») ? Importe-le pour retrouver ton voyage, tes billets et ta bannière.</p><label class="btn ghost" style="position:relative">Importer un carnet<input type="file" id="importpick" accept=".html,.htm,.json,text/html,application/json" style="position:absolute;width:1px;height:1px;opacity:0"></label></div>':'')+
@@ -4164,14 +4207,21 @@ function renderSheet(){
   var el=$('#sheet');
   if(!sheet){el.hidden=true;el.innerHTML='';if($('#modal').hidden&&$('#viewer').hidden)document.body.style.overflow='';return}
   var k=sheet.kind,h='<div class="panel gut" role="dialog" aria-modal="true" aria-labelledby="sh-t"><div class="grab"></div><div class="col in">';
-  if(k==='backup'){
+  if(k==='trips'){
+    var L=IDX.ids.slice().sort(function(a,b){return (b.start||'')<(a.start||'')?-1:(b.start||'')>(a.start||'')?1:0});
+    h+='<h2 id="sh-t">Mes carnets</h2><div class="trips">'+(L.length?L.map(function(m){
+      var dt=isDate(m.start)?fRange.format(pd(m.start))+(isDate(m.end)&&m.end!==m.start?' → '+fRange.format(pd(m.end)):''):'';
+      return '<button type="button" class="tripitem" data-opentrip="'+esc(m.id)+'"'+(S.trip&&S.trip.uid===m.id?' aria-current="true"':'')+'><b>'+esc(m.title||'Mon voyage')+'</b><span>'+esc([m.destination,dt].filter(Boolean).join(' · '))+'</span>'+(S.trip&&S.trip.uid===m.id?'<em>Ouvert</em>':'')+'</button>'}).join(''):'<p class="note">Aucun carnet pour l\'instant.</p>')+'</div>'+
+      '<div class="acts" style="margin-top:12px"><button type="button" class="btn" data-newtrip>'+IC.plus+'Nouveau carnet</button><label class="btn ghost" style="position:relative">Importer un carnet<input type="file" id="importpick" accept=".html,.htm,.json,text/html,application/json" style="position:absolute;width:1px;height:1px;opacity:0"></label></div>'+
+      (sheet.err?'<p class="err">'+esc(sheet.err)+'</p>':'')+
+      '<div class="foot"><div class="r"><button type="button" class="btn ghost" data-close>Fermer</button></div></div>';
+  }else if(k==='backup'){
     var nf=Object.keys(S.files).length,sz=Object.keys(S.files).reduce(function(a,id){return a+S.files[id].length*.75},0);
     h+='<h2 id="sh-t">Sauvegarde</h2><p class="msg">Ton carnet s\'enregistre automatiquement sur ce téléphone, à chaque modification.'+(sheet.persist===true?' Le téléphone a accepté de le garder durablement.':'')+'</p>'+
       '<div class="card"><h3>Exporter une copie</h3><p class="note">Un fichier « '+esc(fileName())+' » avec tout le voyage et les '+nf+' fichier(s) joints ('+(sz/1048576).toFixed(1).replace('.',',')+' Mo). Il s\'ouvre aussi hors ligne, sans l\'appli. Garde-le en sauvegarde ou envoie-le à un autre voyageur.</p>'+
       (S.trip.backupAt?'<span class="ostate">Dernière copie : '+esc(fWhen.format(new Date(S.trip.backupAt)))+'</span>':'<span class="ostate warn">Aucune copie exportée</span>')+
       '<button type="button" class="btn" data-exportcopy>'+IC.dl+'Exporter une copie</button></div>'+
-      '<div class="card"><h3>Importer un carnet</h3><p class="note">Remplace le voyage actuel par celui d\'un fichier exporté (ou d\'un ancien fichier carnet).</p>'+
-      (sheet.confirmImport?'<p class="err">Le voyage actuel sera remplacé. Exporte une copie avant si tu veux le garder.</p>':'')+
+      '<div class="card"><h3>Importer un carnet</h3><p class="note">Ajoute à tes carnets celui d\'un fichier exporté (ou d\'un ancien fichier carnet). Si tu as déjà ce carnet, il est mis à jour.</p>'+
       '<label class="btn ghost" style="position:relative">Choisir le fichier<input type="file" id="importpick" accept=".html,.htm,.json,text/html,application/json" style="position:absolute;width:1px;height:1px;opacity:0"></label></div>'+
       (sheet.err?'<p class="err">'+esc(sheet.err)+'</p>':'')+
       '<div class="foot"><div class="r"><button type="button" class="btn ghost" data-close>Fermer</button></div></div>';
@@ -4648,13 +4698,16 @@ function qrSvg(text){
 
 /* ---------- events ---------- */
 document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-update],[data-pdfinc],[data-pdfall],[data-arch],[data-maplock],[data-resetask],[data-resetall],[data-resetcancel],[data-resetgeo],[data-shareapp],[data-qr],[data-backup],[data-exportcopy],[data-save],[data-export],[data-tab],[data-add],[data-edit],[data-attach],[data-trip],[data-reset],[data-close],[data-doreset],[data-askdel],[data-delitem],[data-rmfile],[data-jump],[data-copy],[data-open],[data-vclose],[data-vzoom],[data-vdl],[data-mapday],[data-base],[data-preset],[data-rm]');
+  var t=e.target.closest('[data-update],[data-trips],[data-opentrip],[data-newtrip],[data-pdfinc],[data-pdfall],[data-arch],[data-maplock],[data-resetask],[data-resetall],[data-resetcancel],[data-resetgeo],[data-shareapp],[data-qr],[data-backup],[data-exportcopy],[data-save],[data-export],[data-tab],[data-add],[data-edit],[data-attach],[data-trip],[data-reset],[data-close],[data-doreset],[data-askdel],[data-delitem],[data-rmfile],[data-jump],[data-copy],[data-open],[data-vclose],[data-vzoom],[data-vdl],[data-mapday],[data-base],[data-preset],[data-rm]');
   if(!t){if(e.target.id==='sheet')closeSheet();return}
   var d=t.dataset;
   if(t.hasAttribute('data-pdfinc')||t.hasAttribute('data-pdfall')){
     var all=t.hasAttribute('data-pdfall'),y0=window.scrollY;
     S.trip.infos.forEach(function(i){if(all)i.nopdf=t.getAttribute('data-pdfall')==='1'?undefined:true;else if(i.id===t.getAttribute('data-pdfinc'))i.nopdf=i.nopdf?undefined:true;if(i.nopdf===undefined)delete i.nopdf});
     S.trip.updatedAt=new Date().toISOString();soft();window.scrollTo(0,y0);return}
+  if(t.hasAttribute('data-trips')){sheet={kind:'trips',added:[]};renderSheet();return}
+  if(t.hasAttribute('data-opentrip')){var oid=t.getAttribute('data-opentrip');if(S.trip&&S.trip.uid===oid){closeSheet();return}openTrip(oid).catch(function(err){if(sheet){sheet.err=err.message;renderSheet()}});return}
+  if(t.hasAttribute('data-newtrip')){newTrip();return}
   if(t.hasAttribute('data-update')){checkUpdate(t);return}
   if(t.hasAttribute('data-arch')){S.archOpen=!S.archOpen;render();return}
   if(t.hasAttribute('data-maplock')){S.mapEdit=!S.mapEdit;S.confirmGeo=false;render();toast(S.mapEdit?'Déplacement activé : glisse un point pour le corriger.':'Positions verrouillées.');return}
@@ -4701,8 +4754,14 @@ document.addEventListener('click',function(e){
     renderSheet();return;
   }
   if(t.hasAttribute('data-doreset')){
+    if(PWA&&S.trip){
+      clearTimeout(idbTimer);var gone=S.trip.uid;
+      idbDel(tripKey(gone));IDX.ids=IDX.ids.filter(function(x){return x.id!==gone});IDX.cur=IDX.ids.length?IDX.ids[0].id:null;idxSave();
+      S.trip=null;S.files={};sheet=null;renderSheet();
+      if(IDX.cur)openTrip(IDX.cur).catch(function(){render()});else render();
+      window.scrollTo(0,0);return;
+    }
     if(S.trip){idbDel('state:'+S.trip.uid);idbDel('handle:'+S.trip.uid)}
-    if(PWA)idbDel('pwa:current');
     S.trip=null;S.files={};S.changed=!PWA;S.msg='';S.scrolled=false;sheet=null;renderSheet();render();window.scrollTo(0,0);return;
   }
   if(d.copy){
@@ -4771,7 +4830,7 @@ var started=false;
 function start(){if(started)return;started=true;checkReminder();needGeo()}
 if(PWA){
   $('#app').innerHTML='<p class="busy" style="text-align:center;padding:60px 16px">Ouverture du carnet…</p>';
-  idbGet('pwa:current').then(function(c){if(c&&c.trip){S.trip=norm(c.trip);S.files=c.files||{}}}).catch(function(){}).then(function(){render();if(S.trip)start()});
+  loadStore().catch(function(){}).then(function(){render();if(S.trip)start()});
   if(NATIVE){
     try{plugin('App').addListener('backButton',function(){
       if(!$('#viewer').hidden)closeViewer();else if(!$('#modal').hidden)closeModal();else if(sheet)closeSheet();
