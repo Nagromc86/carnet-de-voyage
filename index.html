@@ -3363,7 +3363,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='10/11/2026 20:55';
+var APP_VERSION='11/11/2026 12:40';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
@@ -3389,7 +3389,7 @@ function checkUpdate(btn){
   if(!online()){toast('Pas de connexion : la mise à jour se fera plus tard.');return}
   if(btn){btn.disabled=true;btn.textContent='Recherche…'}
   fetch(NATIVE?APP_URL+'index.html':'./index.html',{cache:'no-store'}).then(function(r){return r.text()}).then(function(txt){
-    var m=/var APP_VERSION='([^']*)'/.exec(txt),v=m?m[1]:'';
+    var m=/var APP_VERSION='11/11/2026 12:40']*)'/.exec(txt),v=m?m[1]:'';
     if(v&&v!==APP_VERSION&&NATIVE){
       if(btn){btn.disabled=false;btn.textContent='Rechercher une mise à jour'}
       S.apkUpdate=v;render();toast('Version '+v+' disponible : touche « Télécharger la mise à jour » puis installe l\'APK.');return;
@@ -3399,6 +3399,7 @@ function checkUpdate(btn){
   }).catch(function(){toast('Impossible de vérifier la mise à jour.');if(btn){btn.disabled=false;btn.textContent='Rechercher une mise à jour'}});
 }
 var APP_URL='https://nagromc86.github.io/carnet-de-voyage/';
+var SHARE_URL=APP_URL+'go.html';/* lien à partager : télécharge l'APK sur Android, ouvre la version web ailleurs */
 var KEY={flight:'flights',stay:'stays',act:'activities',back:'activities',info:'infos'};
 var IMG_TYPES=['image/jpeg','image/png','image/webp','image/gif'];
 
@@ -4010,11 +4011,11 @@ function inPdf(i){return !i.nopdf}
 function viewInfos(t){
   var h='<div class="shead"><h2>Infos importantes</h2><button type="button" class="btn" data-add="info">'+IC.plus+'Info</button></div>'+offlineCard(t)+costCard(t);
   h+='<article class="card"><span class="eyebrow">L\'appli</span><h3>Partager l\'appli</h3><p class="note">Envoie ce lien à un autre voyageur : il l\'ouvre dans Chrome puis ⋮ › Installer l\'application. Il démarre avec un carnet vide. Pour lui donner ce voyage, envoie-lui aussi une copie (Sauvegarde › Exporter une copie), qu\'il importera.</p>'+
-    '<p class="urlrow"><span class="sel">'+esc(APP_URL)+'</span></p><div class="acts">'+(navigator.share?'<button type="button" class="act" data-shareapp>Partager</button>':'')+
-    '<button type="button" class="act" data-copy="'+esc(APP_URL)+'">Copier le lien</button><button type="button" class="act" data-qr aria-expanded="'+(S.qr?'true':'false')+'">'+(S.qr?'Masquer le QR code':'QR code')+'</button></div>'+
+    '<p class="urlrow"><span class="sel">'+esc(SHARE_URL)+'</span></p><div class="acts">'+(navigator.share?'<button type="button" class="act" data-shareapp>Partager</button>':'')+
+    '<button type="button" class="act" data-copy="'+esc(SHARE_URL)+'">Copier le lien</button><button type="button" class="act" data-qr aria-expanded="'+(S.qr?'true':'false')+'">'+(S.qr?'Masquer le QR code':'QR code')+'</button></div>'+
     '<span class="ostate" style="color:var(--muted)">Version de l\'appli : '+esc(APP_VERSION)+(NATIVE?' (appli Android)':'')+'</span>'+(PWA?'<div class="acts"><button type="button" class="act ghost" data-update>Rechercher une mise à jour</button>'+(S.apkUpdate?'<a class="act" href="'+APK_URL+'" target="_blank" rel="noopener">'+IC.dl+'Télécharger la mise à jour ('+esc(S.apkUpdate)+')</a>':'')+'</div>':'')+
     (NATIVE&&S.apkUpdate?'<span class="hint">Une fois téléchargée, ouvre l\'APK pour l\'installer par-dessus : ton carnet est conservé.</span>':'')+
-    (S.qr?'<div class="qrbox">'+qrSvg(APP_URL)+'<span class="hint">À scanner avec l\'appareil photo de l\'autre téléphone.</span></div>':'')+'</article>';
+    (S.qr?'<div class="qrbox">'+qrSvg(SHARE_URL)+'<span class="hint">À scanner avec l\'appareil photo de l\'autre téléphone : sur Android, l\'appli se télécharge.</span></div>':'')+'</article>';
   if(!t.infos.length)h+='<div class="empty"><p>Passeports, assurance, numéros d\'urgence, location de voiture : tout ce qu\'il faut avoir sous la main.</p><button type="button" class="btn ghost" data-add="info">Ajouter une info</button></div>';
   if(t.infos.length){var nIn=t.infos.filter(inPdf).length;h+='<div class="pdfbar"><span><b>'+nIn+' / '+t.infos.length+'</b> info'+(t.infos.length>1?'s':'')+' dans le PDF</span><span class="pdfbtns"><button type="button" class="act ghost" data-pdfall="1">Tout cocher</button><button type="button" class="act ghost" data-pdfall="0">Tout décocher</button></span></div>'}
   t.infos.forEach(function(i){h+='<article class="card'+(inPdf(i)?'':' nopdf')+'"><h3>'+esc(i.title||'Info')+'</h3>'+(i.text?'<p class="note">'+linkify(i.text)+'</p>':'')+actions('info',i)+'<label class="pdfinc"><input type="checkbox" data-pdfinc="'+esc(i.id)+'"'+(inPdf(i)?' checked':'')+'> Inclure dans le PDF</label></article>'});
@@ -4798,7 +4799,7 @@ document.addEventListener('click',function(e){
   if(t.hasAttribute('data-resetcancel')){S.confirmGeo=false;render();return}
   if(t.hasAttribute('data-resetall')){var mg=manualGeos();mg.forEach(function(p){delete p[0][p[1]]});S.confirmGeo=false;S.trip.updatedAt=new Date().toISOString();soft();needGeo();toast(mg.length+' point(s) remis à la position de leur adresse.'+(online()?'':' Ils seront replacés dès que tu auras du réseau.'));return}
   if(t.hasAttribute('data-resetgeo')){capture();delete sheet.draft.geo;sheet.geoReset=true;renderSheet();return}
-  if(t.hasAttribute('data-shareapp')){navigator.share({title:'Carnet de voyage',text:'L\'appli Carnet de voyage : vols, logements, programme, billets et cartes, même hors ligne.',url:APP_URL}).catch(function(){});return}
+  if(t.hasAttribute('data-shareapp')){navigator.share({title:'Carnet de voyage',text:'L\'appli Carnet de voyage : vols, logements, programme, billets et cartes, même hors ligne.',url:SHARE_URL}).catch(function(){});return}
   if(t.hasAttribute('data-qr')){S.qr=!S.qr;render();return}
   if(t.hasAttribute('data-save')){saveFile();return}
   if(t.hasAttribute('data-backup')){sheet={kind:'backup',added:[],confirmImport:true};renderSheet();if(navigator.storage&&navigator.storage.persisted)navigator.storage.persisted().then(function(p){if(sheet&&sheet.kind==='backup'){sheet.persist=p;renderSheet()}}).catch(function(){});return}
@@ -4919,7 +4920,7 @@ if(PWA){
       if(!$('#viewer').hidden)closeViewer();else if(!$('#modal').hidden)closeModal();else if(sheet)closeSheet();
       else if(S.tab!=='prog'){S.tab='prog';render();window.scrollTo(0,0)}else plugin('App').exitApp();
     })}catch(e){}
-    setTimeout(function(){if(online())fetch(APP_URL+'index.html',{cache:'no-store'}).then(function(r){return r.text()}).then(function(txt){var m=/var APP_VERSION='([^']*)'/.exec(txt);if(m&&m[1]!==APP_VERSION){S.apkUpdate=m[1];toast('Une nouvelle version de l\'appli est disponible : Infos › Télécharger la mise à jour.');if(S.tab==='infos')render()}}).catch(function(){})},4000);
+    setTimeout(function(){if(online())fetch(APP_URL+'index.html',{cache:'no-store'}).then(function(r){return r.text()}).then(function(txt){var m=/var APP_VERSION='11/11/2026 12:40']*)'/.exec(txt);if(m&&m[1]!==APP_VERSION){S.apkUpdate=m[1];toast('Une nouvelle version de l\'appli est disponible : Infos › Télécharger la mise à jour.');if(S.tab==='infos')render()}}).catch(function(){})},4000);
   }else if('serviceWorker' in navigator){
     var hadCtrl=!!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange',function(){

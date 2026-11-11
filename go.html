@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0c1a2b"><title>Carnet de voyage — installer</title>
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0c1a2b;color:#eaf1fb;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:24px}
+  main{max-width:420px;width:100%;text-align:center}
+  img{width:96px;height:96px;border-radius:22px}
+  h1{font-size:1.6rem;margin:16px 0 6px}
+  p{color:#9fb2cb;line-height:1.5;margin:8px 0}
+  a.btn{display:block;margin:14px 0 0;padding:16px;border-radius:14px;background:#35c9c0;color:#04231f;font-weight:700;text-decoration:none;font-size:1.05rem}
+  a.btn.sec{background:#16283f;color:#eaf1fb;border:1px solid #28405f;font-weight:600}
+  .hide{display:none}
+  small{display:block;margin-top:18px;color:#7f93ae}
+</style></head><body><main>
+<img src="icon-192.png" alt="">
+<h1>Carnet de voyage</h1>
+<p>Vols, logements, programme, billets et cartes, même hors ligne.</p>
+<div id="android" class="hide">
+  <p id="msg">Le téléchargement de l'appli Android démarre…</p>
+  <a class="btn" id="apk" href="https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk">Télécharger l'appli (APK)</a>
+  <small>Une fois téléchargée, ouvre le fichier pour l'installer. Si Android le demande, autorise l'installation depuis ce navigateur.</small>
+  <a class="btn sec" href="./">Ou utiliser la version web</a>
+</div>
+<div id="other" class="hide">
+  <p>L'appli Android (APK) ne s'installe que sur Android. Sur iPhone, iPad ou ordinateur, utilise la version web.</p>
+  <a class="btn" href="./">Ouvrir le carnet</a>
+  <small>Sur iPhone : touche « Partager » puis « Sur l'écran d'accueil » pour l'installer comme une appli.</small>
+  <a class="btn sec" href="https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk">Télécharger l'APK quand même</a>
+</div>
+<script>
+(function(){
+  var android=/Android/i.test(navigator.userAgent);
+  document.getElementById(android?'android':'other').className='';
+  if(android&&!/[?&]noauto/.test(location.search)){setTimeout(function(){location.href=document.getElementById('apk').href},600)}
+})();
+</script></main></body></html>
