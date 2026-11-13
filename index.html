@@ -3385,7 +3385,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='13/11/2026 19:30';
+var APP_VERSION='13/11/2026 20:00';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
@@ -3756,7 +3756,8 @@ function buildHtml(){
   [].forEach.call(clone.querySelectorAll('link[rel=manifest],link[rel=icon],link[rel=apple-touch-icon]'),function(e){e.remove()});
   var js=clone.querySelector('#app-js');js.textContent=js.textContent.replace('var PWA='+'true;','var PWA='+'false;');
   var j=function(o){return JSON.stringify(o).replace(/</g,'\\u003c')};
-  clone.querySelector('#trip-data').textContent=S.trip?j(Object.assign({},S.trip,{activities:S.trip.activities.map(function(a){var c=Object.assign({},a);delete c.photos;return c})})):'null';
+  var nop=function(L){return (L||[]).map(function(a){var c=Object.assign({},a);delete c.photos;delete c._k;return c})};
+  clone.querySelector('#trip-data').textContent=S.trip?j(Object.assign({},S.trip,{flights:nop(S.trip.flights),stays:nop(S.trip.stays),activities:nop(S.trip.activities)})):'null';
   clone.querySelector('#trip-files').textContent=j(S.files||{});
   return '<!doctype html>\n'+clone.outerHTML;
 }
@@ -4342,7 +4343,7 @@ function renderSheet(){
       h+='<div class="fld full"><span class="lbl">Billets et justificatifs</span><div class="files">';
       sheet.draft.files.forEach(function(f){h+='<div class="frow"><b>'+(f.type==='application/pdf'?'PDF':'IMG')+'</b><span>'+esc(f.name)+'</span><button type="button" data-rmfile="'+esc(f.id)+'">Retirer</button></div>'});
       h+='<label class="pick">'+IC.plus+'<span>Joindre un PDF ou une photo</span><input type="file" id="sfile" accept="application/pdf,image/*" multiple></label><span class="hint">Pour un mail : fais une capture d\'écran, ou dans Gmail ⋮ › Imprimer › Enregistrer en PDF.</span></div></div>';
-      if(k==='act')h+=phSectionHtml(sheet.draft);
+      if(k==='act'||k==='flight'||k==='stay')h+=phSectionHtml(sheet.draft);
       if(GEO_FIELDS[k]){
         var g=sheet.draft.geo;
         h+='<p class="geo full">'+(okGeo(g)?(g.src==='manual'?'Position placée à la main sur la carte. <button type="button" class="linkbtn" data-resetgeo>Remettre la position de l\'adresse</button>':g.src==='link'?'Position prise dans le lien Google Maps.':'Position trouvée automatiquement. Vérifie-la dans l\'onglet Carte.'):g&&g.failed?'Lieu introuvable : précise l\'adresse ou colle le lien Google Maps.':sheet.geoReset?'La position sera recalculée à partir de l\'adresse en validant (connexion nécessaire).':'La position sera cherchée à l\'enregistrement (connexion nécessaire).')+'</p>';
@@ -4401,7 +4402,7 @@ function phUrl(id,thumb){
   return phBlob(id,thumb).then(function(b){if(!b&&thumb)return phBlob(id,false);return b}).then(function(b){if(!b)throw new Error('photo absente');PHU[k]=URL.createObjectURL(b);return PHU[k]});
 }
 function phDrop(ids){ids.forEach(function(id){idbDel(phKey(id));idbDel(phKey(id,true));['t:','f:'].forEach(function(p){if(PHU[p+id]){URL.revokeObjectURL(PHU[p+id]);delete PHU[p+id]}})})}
-function phAll(t){var n=0;(t.activities||[]).forEach(function(a){n+=(a.photos||[]).length});return n}
+function phAll(t){var n=0;['flights','stays','activities'].forEach(function(k){(t[k]||[]).forEach(function(a){n+=(a.photos||[]).length})});return n}
 function shrinkBlob(file,max,q){
   return new Promise(function(res,rej){
     var url=URL.createObjectURL(file),img=new Image();
@@ -4416,8 +4417,8 @@ function shrinkBlob(file,max,q){
     img.src=url;
   });
 }
-function addPhotos(actId,files,progress){
-  var a=find('act',actId);if(!a)return Promise.resolve(0);
+function addPhotos(kind,actId,files,progress){
+  var a=find(kind,actId);if(!a)return Promise.resolve(0);
   a.photos=a.photos||[];var ok=0,errs=[];
   return files.reduce(function(p,f,i){return p.then(function(){
     progress&&progress('Photo '+(i+1)+'/'+files.length+'…');
@@ -4427,7 +4428,7 @@ function addPhotos(actId,files,progress){
       return idbSet(phKey(id),full.blob).then(function(){return idbSet(phKey(id,true),t.blob)}).then(function(){a.photos.push({id:id,w:full.w,h:full.h,at:Date.now()});ok++});
     }).catch(function(e){errs.push((f.name||'photo')+' : '+e.message)});
   })},Promise.resolve()).then(function(){
-    if(sheet&&sheet.draft&&sheet.id===actId)sheet.draft.photos=a.photos.slice();
+    if(sheet&&sheet.draft&&sheet.id===actId&&sheet.kind===kind)sheet.draft.photos=a.photos.slice();
     S.trip.updatedAt=new Date().toISOString();keepNow();
     if(errs.length)throw new Error(errs.join(' · '));
     return ok;
@@ -4435,8 +4436,9 @@ function addPhotos(actId,files,progress){
 }
 function phSectionHtml(it){
   if(!PWA)return '';
-  if(!sheet.id)return '<div class="fld full"><span class="lbl">Photos</span><span class="hint">Enregistre d\'abord l\'activité : tu pourras ensuite y ajouter tes photos.</span></div>';
-  var live=find('act',sheet.id),L=(live&&live.photos)||[];
+  var nm={act:'l\'activité',flight:'le vol',stay:'le logement'}[sheet.kind];
+  if(!sheet.id)return '<div class="fld full"><span class="lbl">Photos</span><span class="hint">Enregistre d\'abord '+nm+' : tu pourras ensuite y ajouter tes photos.</span></div>';
+  var live=find(sheet.kind,sheet.id),L=(live&&live.photos)||[];
   return '<div class="fld full"><span class="lbl">Photos'+(L.length?' ('+L.length+')':'')+'</span>'+
     (L.length?'<div class="phgrid">'+L.map(function(p,i){return '<button type="button" class="phth" data-phopen="'+i+'" aria-label="Photo '+(i+1)+'"><img alt="" data-ph="'+esc(p.id)+'"></button>'}).join('')+'</div>':'')+
     '<label class="pick">'+IC.plus+'<span>Ajouter des photos</span><input type="file" id="phfile" accept="image/*" multiple></label>'+
@@ -4449,9 +4451,18 @@ function phHydrate(root){
 }
 /* --- diaporama --- */
 var ALB=null;
+/* éléments avec photos (vols, logements, activités), dans l'ordre du voyage */
+function itemWhen(kind,it){var v=kind==='flight'?it.dep:kind==='stay'?it.checkin:(it.date?it.date+'T'+(it.start||'00:00'):'');return v||'9999'}
 function actSorted(t){
-  return (t.activities||[]).filter(function(a){return (a.photos||[]).length&&!a.stayId}).slice().sort(function(a,b){
-    var x=(a.date||'9999')+(a.start||'99:99'),y=(b.date||'9999')+(b.start||'99:99');return x<y?-1:x>y?1:0});
+  var L=[];[['flight','flights'],['stay','stays'],['act','activities']].forEach(function(k){(t[k[1]]||[]).forEach(function(it){if((it.photos||[]).length&&!(k[0]==='act'&&it.stayId)){it._k=k[0];L.push(it)}})});
+  return L.sort(function(a,b){var x=itemWhen(a._k,a),y=itemWhen(b._k,b);return x<y?-1:x>y?1:0});
+}
+/* rappel d'un élément : jour, heure, titre, lieu, notes */
+function itemInfo(kind,it){
+  if(kind==='flight'){var d=dpart(it.dep);return {day:dayTxt(d),time:[tpart(it.dep),it.arr?tpart(it.arr)+(dpart(it.arr)!==d?' (+1)':''):''].filter(Boolean).join(' – '),
+    title:'Vol '+[it.airline,it.number].filter(Boolean).join(' ')+' · '+iata(it.from)+' → '+iata(it.to),where:[it.from,it.to].filter(Boolean).join(' → '),notes:it.notes,label:'Vol'}}
+  if(kind==='stay'){var a=dpart(it.checkin),b=dpart(it.checkout);return {day:dayTxt(a)+(isDate(b)&&b!==a?' → '+dayTxt(b):''),time:'',title:it.name||'Logement',where:it.address||'',notes:it.notes,label:'Logement'}}
+  return {day:dayTxt(it.date),time:[it.start,it.end].filter(Boolean).join(' – '),title:it.title||'Activité',where:actWhere(it),notes:it.notes,label:'Activité'};
 }
 function tripOver(t){var e=t.end||t.start;return isDate(e)&&today()>e}
 function dayTxt(d){return isDate(d)?cap(fDay.format(pd(d))):''}
@@ -4459,7 +4470,7 @@ function cap(x){return x?x.charAt(0).toUpperCase()+x.slice(1):x}
 function actWhere(a){return [a.place,a.address].filter(Boolean).join(', ')}
 function albumOpen(mode,actId,start){
   var t=S.trip,slides=[];
-  if(mode==='act'){var a=find('act',actId);(a.photos||[]).forEach(function(p){slides.push({k:'ph',a:a,p:p})})}
+  if(mode==='act'){var a=find(sheet.kind,actId);a._k=sheet.kind;(a.photos||[]).forEach(function(p){slides.push({k:'ph',a:a,p:p})})}
   else{
     slides.push({k:'cover'});
     actSorted(t).forEach(function(a){slides.push({k:'act',a:a});a.photos.forEach(function(p){slides.push({k:'ph',a:a,p:p})})});
@@ -4479,12 +4490,12 @@ function albumPaint(){
   if(sl.k==='cover'){
     h='<div class="alcover" style="'+esc(bannerStyle(t))+'"><div class="alshade"></div><div class="alcap big"><span class="eyebrow">Album photo</span><h2>'+esc(t.title||'Mon voyage')+'</h2><p>'+esc([t.destination,isDate(t.start)?fRange.format(pd(t.start))+(isDate(t.end)&&t.end!==t.start?' → '+fRange.format(pd(t.end)):''):''].filter(Boolean).join(' · '))+'</p><p class="almut">'+phAll(t)+' photo(s)</p></div></div>';
   }else if(sl.k==='act'){
-    var a=sl.a,tm=[a.start,a.end].filter(Boolean).join(' – ');
-    h='<div class="alact"><span class="eyebrow">'+esc(dayTxt(a.date))+(tm?' · '+esc(tm):'')+'</span><h2>'+esc(a.title||'Activité')+'</h2>'+(actWhere(a)?'<p class="alwhere">'+esc(actWhere(a))+'</p>':'')+(a.notes?'<p class="alnote">'+esc(String(a.notes).slice(0,280))+(String(a.notes).length>280?'…':'')+'</p>':'')+'<p class="almut">'+a.photos.length+' photo(s)</p></div>';
+    var a=sl.a,I=itemInfo(a._k,a);
+    h='<div class="alact"><span class="eyebrow">'+esc(I.label)+' · '+esc(I.day)+(I.time?' · '+esc(I.time):'')+'</span><h2>'+esc(I.title)+'</h2>'+(I.where?'<p class="alwhere">'+esc(I.where)+'</p>':'')+(I.notes?'<p class="alnote">'+esc(String(I.notes).slice(0,280))+(String(I.notes).length>280?'…':'')+'</p>':'')+'<p class="almut">'+a.photos.length+' photo(s)</p></div>';
   }else if(sl.k==='end'){
     h='<div class="alact"><h2>Fin</h2><p class="alwhere">'+esc(t.title||'')+'</p><button type="button" class="btn" data-alrestart>Revoir depuis le début</button></div>';
   }else{
-    h='<div class="alph"><img alt="" data-alimg="'+esc(sl.p.id)+'"></div><div class="alcap"><b>'+esc(sl.a.title||'Activité')+'</b><span>'+esc([dayTxt(sl.a.date),sl.a.place].filter(Boolean).join(' · '))+'</span></div>';
+    var I2=itemInfo(sl.a._k,sl.a);h='<div class="alph"><img alt="" data-alimg="'+esc(sl.p.id)+'"></div><div class="alcap"><b>'+esc(I2.title)+'</b><span>'+esc([I2.day,sl.a._k==='act'?sl.a.place:''].filter(Boolean).join(' · '))+'</span></div>';
   }
   var del=ALB.mode==='act'&&sl.k==='ph';
   h+='<button type="button" class="alzone l" data-alprev aria-label="Précédente"></button><button type="button" class="alzone r" data-alnext aria-label="Suivante"></button>'+
@@ -4512,7 +4523,7 @@ document.addEventListener('click',function(e){
   if(b.hasAttribute('data-aldel')){ALB.confirm=true;albumPaint();return}
   if(b.hasAttribute('data-aldelok')){
     var sl=ALB.slides[ALB.i],a=sl.a;a.photos=(a.photos||[]).filter(function(p){return p.id!==sl.p.id});phDrop([sl.p.id]);
-    if(sheet&&sheet.draft&&sheet.id===a.id)sheet.draft.photos=a.photos.slice();
+    if(sheet&&sheet.draft&&sheet.id===a.id&&sheet.kind===a._k)sheet.draft.photos=a.photos.slice();
     S.trip.updatedAt=new Date().toISOString();keepNow();
     ALB.slides.splice(ALB.i,1);ALB.confirm=false;
     if(!ALB.slides.length)albumClose();else{ALB.i=Math.min(ALB.i,ALB.slides.length-1);albumPaint()}
@@ -4527,9 +4538,9 @@ function albumCard(t){
   var n=phAll(t),over=tripOver(t);
   if(!n&&!over)return '';
   var h='<article class="card"><span class="eyebrow">Souvenirs</span><h3>Album photo du voyage</h3>';
-  if(!over)return h+'<p class="note">'+n+' photo(s) dans tes activités. L\'album sera disponible une fois le voyage terminé'+(isDate(t.end||t.start)?', après le '+esc(fRange.format(pd(t.end||t.start))):'')+'.</p></article>';
-  if(!n)return h+'<p class="note">Ajoute des photos dans tes activités (ouvre une activité › Photos) : l\'album se construira tout seul, jour par jour.</p></article>';
-  return h+'<p class="note">'+n+' photo(s) dans '+actSorted(t).length+' activité(s), rangées jour par jour avec le rappel de chaque activité.</p>'+
+  if(!over)return h+'<p class="note">'+n+' photo(s) dans ton carnet. L\'album sera disponible une fois le voyage terminé'+(isDate(t.end||t.start)?', après le '+esc(fRange.format(pd(t.end||t.start))):'')+'.</p></article>';
+  if(!n)return h+'<p class="note">Ajoute des photos dans tes vols, logements et activités (ouvre-les › Photos) : l\'album se construira tout seul, jour par jour.</p></article>';
+  return h+'<p class="note">'+n+' photo(s) dans '+actSorted(t).length+' étape(s) du voyage (vols, logements, activités), rangées jour par jour avec un rappel de chacune.</p>'+
     '<div class="acts"><button type="button" class="act" data-album>Voir le diaporama</button><button type="button" class="act" data-albumpdf>'+(ALBPDF?esc(ALBPDF):'Générer l\'album PDF')+'</button></div></article>';
 }
 /* --- album PDF (A4 paysage) --- */
@@ -4562,10 +4573,10 @@ function albumPdf(){
           return Promise.all(ch.map(function(x){return phBlob(x.id).then(function(b){return b?b.arrayBuffer():null}).then(function(buf){done++;step('Photos '+done+'/'+total+'…');return buf?doc.embedJpg(new Uint8Array(buf)).catch(function(){return null}):null})})).then(function(imgs){
             var pg=doc.addPage([W,H]),top=H-M;
             /* rappel de l'activité */
-            var tm=[a.start,a.end].filter(Boolean).join(' - ');
-            txt(pg,[dayTxt(a.date),tm].filter(Boolean).join('  ·  ')+(ci?'  (suite)':''),M,top-10,10,F.r,F.mut);
-            txt(pg,a.title||'Activité',M,top-34,20,F.b,F.ink,W-2*M);
-            var wh=actWhere(a);if(wh)txt(pg,wh,M,top-52,10,F.r,F.mut,W-2*M);
+            var I=itemInfo(a._k,a);
+            txt(pg,[I.label,I.day,I.time].filter(Boolean).join('  ·  ')+(ci?'  (suite)':''),M,top-10,10,F.r,F.mut);
+            txt(pg,I.title,M,top-34,20,F.b,F.ink,W-2*M);
+            if(I.where)txt(pg,I.where,M,top-52,10,F.r,F.mut,W-2*M);
             pg.drawLine({start:{x:M,y:top-62},end:{x:W-M,y:top-62},thickness:.6,color:F.line});
             var ay=M,ah=top-74-M,ax=M,aw=W-2*M,g=10,n=imgs.length,cells=[];
             if(n===1)cells=[[ax,ay,aw,ah]];
@@ -5060,7 +5071,7 @@ document.addEventListener('click',function(e){
   if(t.hasAttribute('data-doreset')){
     if(PWA&&S.trip){
       clearTimeout(idbTimer);var gone=S.trip.uid;
-      S.trip.activities.forEach(function(a){if(a.photos)phDrop(a.photos.map(function(p){return p.id}))});
+      ['flights','stays','activities'].forEach(function(k){S.trip[k].forEach(function(a){if(a.photos)phDrop(a.photos.map(function(p){return p.id}))})});
       idbDel(tripKey(gone));IDX.ids=IDX.ids.filter(function(x){return x.id!==gone});IDX.cur=IDX.ids.length?IDX.ids[0].id:null;idxSave();
       S.trip=null;S.files={};sheet=null;renderSheet();
       if(IDX.cur)openTrip(IDX.cur).catch(function(){render()});else render();
@@ -5106,7 +5117,7 @@ document.addEventListener('change',function(e){
     var pfs=[].slice.call(e.target.files||[]);if(!pfs.length)return;
     capture();sheet.err='';var s3=sheet;
     var prog=function(m){if(sheet===s3){s3.busy=m;renderSheet()}};
-    addPhotos(s3.id,pfs,prog).then(function(n){if(sheet===s3){s3.busy='';renderSheet()}toast(n+' photo(s) ajoutée(s).')},function(err){if(sheet===s3){s3.busy='';s3.err=err.message;renderSheet()}});
+    addPhotos(s3.kind,s3.id,pfs,prog).then(function(n){if(sheet===s3){s3.busy='';renderSheet()}toast(n+' photo(s) ajoutée(s).')},function(err){if(sheet===s3){s3.busy='';s3.err=err.message;renderSheet()}});
     return;
   }
   if(id==='bannerpick'){
