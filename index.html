@@ -3363,7 +3363,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='11/11/2026 12:40';
+var APP_VERSION='13/11/2026 17:30';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
@@ -3389,7 +3389,7 @@ function checkUpdate(btn){
   if(!online()){toast('Pas de connexion : la mise à jour se fera plus tard.');return}
   if(btn){btn.disabled=true;btn.textContent='Recherche…'}
   fetch(NATIVE?APP_URL+'index.html':'./index.html',{cache:'no-store'}).then(function(r){return r.text()}).then(function(txt){
-    var m=/var APP_VERSION='11/11/2026 12:40']*)'/.exec(txt),v=m?m[1]:'';
+    var m=/var APP_VERSION='([^']*)'/.exec(txt),v=m?m[1]:'';
     if(v&&v!==APP_VERSION&&NATIVE){
       if(btn){btn.disabled=false;btn.textContent='Rechercher une mise à jour'}
       S.apkUpdate=v;render();toast('Version '+v+' disponible : touche « Télécharger la mise à jour » puis installe l\'APK.');return;
@@ -4920,7 +4920,7 @@ if(PWA){
       if(!$('#viewer').hidden)closeViewer();else if(!$('#modal').hidden)closeModal();else if(sheet)closeSheet();
       else if(S.tab!=='prog'){S.tab='prog';render();window.scrollTo(0,0)}else plugin('App').exitApp();
     })}catch(e){}
-    setTimeout(function(){if(online())fetch(APP_URL+'index.html',{cache:'no-store'}).then(function(r){return r.text()}).then(function(txt){var m=/var APP_VERSION='11/11/2026 12:40']*)'/.exec(txt);if(m&&m[1]!==APP_VERSION){S.apkUpdate=m[1];toast('Une nouvelle version de l\'appli est disponible : Infos › Télécharger la mise à jour.');if(S.tab==='infos')render()}}).catch(function(){})},4000);
+    setTimeout(function(){if(online())fetch(APP_URL+'index.html',{cache:'no-store'}).then(function(r){return r.text()}).then(function(txt){var m=/var APP_VERSION='([^']*)'/.exec(txt);if(m&&m[1]!==APP_VERSION){S.apkUpdate=m[1];toast('Une nouvelle version de l\'appli est disponible : Infos › Télécharger la mise à jour.');if(S.tab==='infos')render()}}).catch(function(){})},4000);
   }else if('serviceWorker' in navigator){
     var hadCtrl=!!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange',function(){
