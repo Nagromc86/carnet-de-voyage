@@ -936,6 +936,28 @@ a.act{color:var(--ink)}
 .foot{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center}
 .foot .r{display:flex;gap:8px;margin-left:auto}
 .busy{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+/* photos + album */
+.phgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;margin:4px 0 8px}
+.phth{aspect-ratio:1;padding:0;border:0;border-radius:10px;overflow:hidden;background:var(--surface2,#223);cursor:pointer}
+.phth img{width:100%;height:100%;object-fit:cover;display:block}.phth.missing{opacity:.4}
+#album{position:fixed;inset:0;z-index:1200;background:#07090b;color:#fff;overflow:hidden;user-select:none}
+#album .alph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+#album .alph img{max-width:100%;max-height:100%;object-fit:contain;animation:alfade .5s ease}
+@keyframes alfade{from{opacity:0;transform:scale(1.02)}to{opacity:1;transform:none}}
+#album .alcap{position:absolute;left:0;right:0;bottom:0;padding:48px 20px calc(70px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.75));display:flex;flex-direction:column;gap:2px;pointer-events:none}
+#album .alcap b{font-size:1.1rem}#album .alcap span{opacity:.8;font-size:.9rem}
+#album .alcover{position:absolute;inset:0;background:#123 center/cover no-repeat}
+#album .alshade{position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.2),rgba(0,0,0,.75))}
+#album .alcap.big{top:0;justify-content:flex-end;padding-bottom:calc(110px + env(safe-area-inset-bottom))}
+#album .alcap.big h2{font-size:2.4rem;line-height:1.05;margin:4px 0}
+#album .alact{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:24px 28px 90px;background:radial-gradient(circle at 30% 20%,#173040,#07090b 70%);animation:alfade .5s ease}
+#album .alact h2{font-size:2rem;line-height:1.1;margin:6px 0 8px}#album .alwhere{opacity:.85;margin:0 0 10px}#album .alnote{opacity:.75;font-size:.95rem;line-height:1.45;margin:0 0 10px}
+#album .almut{opacity:.6;font-size:.85rem;margin:0}
+#album .eyebrow{color:#7fe0d6}
+#album .alzone{position:absolute;top:0;bottom:70px;width:35%;background:transparent;border:0;cursor:pointer}#album .alzone.l{left:0}#album .alzone.r{right:0}
+#album .albar{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:center;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(0,0,0,.55);font-size:.9rem}
+#album .albar div{display:flex;gap:8px}
+#album .albtn{background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:999px;padding:8px 14px;font:inherit}#album .albtn.danger{background:#c0392b}
 #viewer{position:fixed;inset:0;z-index:1100;background:#0b0f12;color:#fff;display:flex;flex-direction:column}
 .vbar{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px));background:#161d23}
 .vbar span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
@@ -3363,7 +3385,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='13/11/2026 17:30';
+var APP_VERSION='13/11/2026 19:30';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
@@ -3734,7 +3756,7 @@ function buildHtml(){
   [].forEach.call(clone.querySelectorAll('link[rel=manifest],link[rel=icon],link[rel=apple-touch-icon]'),function(e){e.remove()});
   var js=clone.querySelector('#app-js');js.textContent=js.textContent.replace('var PWA='+'true;','var PWA='+'false;');
   var j=function(o){return JSON.stringify(o).replace(/</g,'\\u003c')};
-  clone.querySelector('#trip-data').textContent=S.trip?j(S.trip):'null';
+  clone.querySelector('#trip-data').textContent=S.trip?j(Object.assign({},S.trip,{activities:S.trip.activities.map(function(a){var c=Object.assign({},a);delete c.photos;return c})})):'null';
   clone.querySelector('#trip-files').textContent=j(S.files||{});
   return '<!doctype html>\n'+clone.outerHTML;
 }
@@ -4009,7 +4031,7 @@ function viewStays(t){
 }
 function inPdf(i){return !i.nopdf}
 function viewInfos(t){
-  var h='<div class="shead"><h2>Infos importantes</h2><button type="button" class="btn" data-add="info">'+IC.plus+'Info</button></div>'+offlineCard(t)+costCard(t);
+  var h='<div class="shead"><h2>Infos importantes</h2><button type="button" class="btn" data-add="info">'+IC.plus+'Info</button></div>'+offlineCard(t)+costCard(t)+albumCard(t);
   h+='<article class="card"><span class="eyebrow">L\'appli</span><h3>Partager l\'appli</h3><p class="note">Envoie ce lien à un autre voyageur : il l\'ouvre dans Chrome puis ⋮ › Installer l\'application. Il démarre avec un carnet vide. Pour lui donner ce voyage, envoie-lui aussi une copie (Sauvegarde › Exporter une copie), qu\'il importera.</p>'+
     '<p class="urlrow"><span class="sel">'+esc(SHARE_URL)+'</span></p><div class="acts">'+(navigator.share?'<button type="button" class="act" data-shareapp>Partager</button>':'')+
     '<button type="button" class="act" data-copy="'+esc(SHARE_URL)+'">Copier le lien</button><button type="button" class="act" data-qr aria-expanded="'+(S.qr?'true':'false')+'">'+(S.qr?'Masquer le QR code':'QR code')+'</button></div>'+
@@ -4320,6 +4342,7 @@ function renderSheet(){
       h+='<div class="fld full"><span class="lbl">Billets et justificatifs</span><div class="files">';
       sheet.draft.files.forEach(function(f){h+='<div class="frow"><b>'+(f.type==='application/pdf'?'PDF':'IMG')+'</b><span>'+esc(f.name)+'</span><button type="button" data-rmfile="'+esc(f.id)+'">Retirer</button></div>'});
       h+='<label class="pick">'+IC.plus+'<span>Joindre un PDF ou une photo</span><input type="file" id="sfile" accept="application/pdf,image/*" multiple></label><span class="hint">Pour un mail : fais une capture d\'écran, ou dans Gmail ⋮ › Imprimer › Enregistrer en PDF.</span></div></div>';
+      if(k==='act')h+=phSectionHtml(sheet.draft);
       if(GEO_FIELDS[k]){
         var g=sheet.draft.geo;
         h+='<p class="geo full">'+(okGeo(g)?(g.src==='manual'?'Position placée à la main sur la carte. <button type="button" class="linkbtn" data-resetgeo>Remettre la position de l\'adresse</button>':g.src==='link'?'Position prise dans le lien Google Maps.':'Position trouvée automatiquement. Vérifie-la dans l\'onglet Carte.'):g&&g.failed?'Lieu introuvable : précise l\'adresse ou colle le lien Google Maps.':sheet.geoReset?'La position sera recalculée à partir de l\'adresse en validant (connexion nécessaire).':'La position sera cherchée à l\'enregistrement (connexion nécessaire).')+'</p>';
@@ -4331,7 +4354,7 @@ function renderSheet(){
     h+='<div class="r"><button type="button" class="btn ghost" data-close>Annuler</button><button type="submit" form="sf" class="btn"'+(sheet.busy?' disabled':'')+'>Valider</button></div></div>';
   }
   h+='</div></div>';
-  el.innerHTML=h;el.hidden=false;document.body.style.overflow='hidden';
+  el.innerHTML=h;phHydrate(el);el.hidden=false;document.body.style.overflow='hidden';
 }
 function closeSheet(){
   if(!sheet)return;
@@ -4361,10 +4384,205 @@ function saveSheet(){
     var keep=d.files.map(function(f){return f.id});
     if(o)dropFiles((o.files||[]).map(function(f){return f.id}).filter(function(id){return keep.indexOf(id)<0}));
     var L=list(k);
-    if(sheet.id){var i=L.findIndex(function(x){return x.id===sheet.id});if(i>=0)L[i]=d;else L.push(d)}
+    if(sheet.id){var i=L.findIndex(function(x){return x.id===sheet.id});if(i>=0){if(L[i].photos)d.photos=L[i].photos;else delete d.photos;L[i]=d}else L.push(d)}
     else{d.id=uid();L.push(d)}
   }
   sheet=null;renderSheet();changed();
+}
+
+/* ---------- photos des activités (dans l'appli seulement) + album du voyage ----------
+   Les photos sont rangées à part (une entrée IndexedDB par photo, + une vignette), jamais dans la copie exportée,
+   le PDF du carnet ou le partage : on ne les voit qu'en ouvrant l'activité, ou dans l'album une fois le voyage fini. */
+var PHU={};
+function phKey(id,thumb){return 'photo:'+S.trip.uid+':'+id+(thumb?':t':'')}
+function phBlob(id,thumb){return idbGet(phKey(id,thumb))}
+function phUrl(id,thumb){
+  var k=(thumb?'t:':'f:')+id;if(PHU[k])return Promise.resolve(PHU[k]);
+  return phBlob(id,thumb).then(function(b){if(!b&&thumb)return phBlob(id,false);return b}).then(function(b){if(!b)throw new Error('photo absente');PHU[k]=URL.createObjectURL(b);return PHU[k]});
+}
+function phDrop(ids){ids.forEach(function(id){idbDel(phKey(id));idbDel(phKey(id,true));['t:','f:'].forEach(function(p){if(PHU[p+id]){URL.revokeObjectURL(PHU[p+id]);delete PHU[p+id]}})})}
+function phAll(t){var n=0;(t.activities||[]).forEach(function(a){n+=(a.photos||[]).length});return n}
+function shrinkBlob(file,max,q){
+  return new Promise(function(res,rej){
+    var url=URL.createObjectURL(file),img=new Image();
+    img.onload=function(){
+      var s=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement('canvas');
+      c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);
+      var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(function(b){if(b)res({blob:b,w:c.width,h:c.height});else rej(new Error('Image illisible.'))},'image/jpeg',q);
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('Image illisible (format HEIC ?). Choisis un JPG.'))};
+    img.src=url;
+  });
+}
+function addPhotos(actId,files,progress){
+  var a=find('act',actId);if(!a)return Promise.resolve(0);
+  a.photos=a.photos||[];var ok=0,errs=[];
+  return files.reduce(function(p,f,i){return p.then(function(){
+    progress&&progress('Photo '+(i+1)+'/'+files.length+'…');
+    var full;
+    return shrinkBlob(f,1600,.82).then(function(r){full=r;return shrinkBlob(r.blob,360,.72)}).then(function(t){
+      var id=uid();
+      return idbSet(phKey(id),full.blob).then(function(){return idbSet(phKey(id,true),t.blob)}).then(function(){a.photos.push({id:id,w:full.w,h:full.h,at:Date.now()});ok++});
+    }).catch(function(e){errs.push((f.name||'photo')+' : '+e.message)});
+  })},Promise.resolve()).then(function(){
+    if(sheet&&sheet.draft&&sheet.id===actId)sheet.draft.photos=a.photos.slice();
+    S.trip.updatedAt=new Date().toISOString();keepNow();
+    if(errs.length)throw new Error(errs.join(' · '));
+    return ok;
+  });
+}
+function phSectionHtml(it){
+  if(!PWA)return '';
+  if(!sheet.id)return '<div class="fld full"><span class="lbl">Photos</span><span class="hint">Enregistre d\'abord l\'activité : tu pourras ensuite y ajouter tes photos.</span></div>';
+  var live=find('act',sheet.id),L=(live&&live.photos)||[];
+  return '<div class="fld full"><span class="lbl">Photos'+(L.length?' ('+L.length+')':'')+'</span>'+
+    (L.length?'<div class="phgrid">'+L.map(function(p,i){return '<button type="button" class="phth" data-phopen="'+i+'" aria-label="Photo '+(i+1)+'"><img alt="" data-ph="'+esc(p.id)+'"></button>'}).join('')+'</div>':'')+
+    '<label class="pick">'+IC.plus+'<span>Ajouter des photos</span><input type="file" id="phfile" accept="image/*" multiple></label>'+
+    '<span class="hint">Visibles seulement ici et dans l\'album photo du voyage (Infos), une fois le voyage terminé.</span></div>';
+}
+function phHydrate(root){
+  [].forEach.call((root||document).querySelectorAll('img[data-ph]:not([src])'),function(img){
+    phUrl(img.getAttribute('data-ph'),true).then(function(u){img.src=u},function(){img.parentNode&&img.parentNode.classList.add('missing')});
+  });
+}
+/* --- diaporama --- */
+var ALB=null;
+function actSorted(t){
+  return (t.activities||[]).filter(function(a){return (a.photos||[]).length&&!a.stayId}).slice().sort(function(a,b){
+    var x=(a.date||'9999')+(a.start||'99:99'),y=(b.date||'9999')+(b.start||'99:99');return x<y?-1:x>y?1:0});
+}
+function tripOver(t){var e=t.end||t.start;return isDate(e)&&today()>e}
+function dayTxt(d){return isDate(d)?cap(fDay.format(pd(d))):''}
+function cap(x){return x?x.charAt(0).toUpperCase()+x.slice(1):x}
+function actWhere(a){return [a.place,a.address].filter(Boolean).join(', ')}
+function albumOpen(mode,actId,start){
+  var t=S.trip,slides=[];
+  if(mode==='act'){var a=find('act',actId);(a.photos||[]).forEach(function(p){slides.push({k:'ph',a:a,p:p})})}
+  else{
+    slides.push({k:'cover'});
+    actSorted(t).forEach(function(a){slides.push({k:'act',a:a});a.photos.forEach(function(p){slides.push({k:'ph',a:a,p:p})})});
+    slides.push({k:'end'});
+  }
+  if(!slides.length)return;
+  ALB={mode:mode,actId:actId,slides:slides,i:start||0,play:mode!=='act',confirm:false};
+  var el=document.createElement('div');el.id='album';el.setAttribute('role','dialog');el.setAttribute('aria-label','Album photo');document.body.appendChild(el);
+  document.body.style.overflow='hidden';albumPaint();albumTimer();
+}
+function albumClose(){clearTimeout(albumTimer.t);var el=$('#album');if(el)el.remove();ALB=null;if(!sheet&&$('#viewer').hidden)document.body.style.overflow=''}
+function albumTimer(){clearTimeout(albumTimer.t);if(!ALB||!ALB.play)return;var sl=ALB.slides[ALB.i];albumTimer.t=setTimeout(function(){if(!ALB)return;if(ALB.i<ALB.slides.length-1){ALB.i++;albumPaint();albumTimer()}else{ALB.play=false;albumPaint()}},sl.k==='ph'?4500:3500)}
+function albumGo(n){if(!ALB)return;var i=Math.max(0,Math.min(ALB.slides.length-1,ALB.i+n));if(i===ALB.i)return;ALB.i=i;ALB.confirm=false;albumPaint();albumTimer()}
+function albumPaint(){
+  var el=$('#album');if(!el||!ALB)return;
+  var t=S.trip,sl=ALB.slides[ALB.i],h='',n=ALB.slides.length;
+  if(sl.k==='cover'){
+    h='<div class="alcover" style="'+esc(bannerStyle(t))+'"><div class="alshade"></div><div class="alcap big"><span class="eyebrow">Album photo</span><h2>'+esc(t.title||'Mon voyage')+'</h2><p>'+esc([t.destination,isDate(t.start)?fRange.format(pd(t.start))+(isDate(t.end)&&t.end!==t.start?' → '+fRange.format(pd(t.end)):''):''].filter(Boolean).join(' · '))+'</p><p class="almut">'+phAll(t)+' photo(s)</p></div></div>';
+  }else if(sl.k==='act'){
+    var a=sl.a,tm=[a.start,a.end].filter(Boolean).join(' – ');
+    h='<div class="alact"><span class="eyebrow">'+esc(dayTxt(a.date))+(tm?' · '+esc(tm):'')+'</span><h2>'+esc(a.title||'Activité')+'</h2>'+(actWhere(a)?'<p class="alwhere">'+esc(actWhere(a))+'</p>':'')+(a.notes?'<p class="alnote">'+esc(String(a.notes).slice(0,280))+(String(a.notes).length>280?'…':'')+'</p>':'')+'<p class="almut">'+a.photos.length+' photo(s)</p></div>';
+  }else if(sl.k==='end'){
+    h='<div class="alact"><h2>Fin</h2><p class="alwhere">'+esc(t.title||'')+'</p><button type="button" class="btn" data-alrestart>Revoir depuis le début</button></div>';
+  }else{
+    h='<div class="alph"><img alt="" data-alimg="'+esc(sl.p.id)+'"></div><div class="alcap"><b>'+esc(sl.a.title||'Activité')+'</b><span>'+esc([dayTxt(sl.a.date),sl.a.place].filter(Boolean).join(' · '))+'</span></div>';
+  }
+  var del=ALB.mode==='act'&&sl.k==='ph';
+  h+='<button type="button" class="alzone l" data-alprev aria-label="Précédente"></button><button type="button" class="alzone r" data-alnext aria-label="Suivante"></button>'+
+    '<div class="albar"><span>'+(ALB.i+1)+' / '+n+'</span><div>'+
+    (ALB.mode!=='act'?'<button type="button" class="albtn" data-alplay>'+(ALB.play?'Pause':'Lecture')+'</button>':'')+
+    (del?(ALB.confirm?'<button type="button" class="albtn danger" data-aldelok>Confirmer</button>':'<button type="button" class="albtn" data-aldel>Supprimer</button>'):'')+
+    '<button type="button" class="albtn" data-alclose aria-label="Fermer">✕</button></div></div>';
+  el.innerHTML=h;
+  var img=el.querySelector('img[data-alimg]');
+  if(img)phUrl(img.getAttribute('data-alimg')).then(function(u){img.src=u},function(){img.alt='Photo introuvable'});
+  var nx=ALB.slides[ALB.i+1];if(nx&&nx.k==='ph')phUrl(nx.p.id).catch(function(){});
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest&&e.target.closest('[data-phopen],[data-album],[data-albumpdf],#album [data-alprev],#album [data-alnext],#album [data-alplay],#album [data-alclose],#album [data-aldel],#album [data-aldelok],#album [data-alrestart]');
+  if(!b)return;
+  e.preventDefault();e.stopPropagation();
+  if(b.hasAttribute('data-phopen')){capture();albumOpen('act',sheet.id,+b.getAttribute('data-phopen'));return}
+  if(b.hasAttribute('data-album')){albumOpen('trip');return}
+  if(b.hasAttribute('data-albumpdf')){albumPdf();return}
+  if(b.hasAttribute('data-alprev')){albumGo(-1);return}
+  if(b.hasAttribute('data-alnext')){albumGo(1);return}
+  if(b.hasAttribute('data-alplay')){ALB.play=!ALB.play;if(ALB.play&&ALB.i===ALB.slides.length-1)ALB.i=0;albumPaint();albumTimer();return}
+  if(b.hasAttribute('data-alrestart')){ALB.i=0;ALB.play=true;albumPaint();albumTimer();return}
+  if(b.hasAttribute('data-alclose')){albumClose();return}
+  if(b.hasAttribute('data-aldel')){ALB.confirm=true;albumPaint();return}
+  if(b.hasAttribute('data-aldelok')){
+    var sl=ALB.slides[ALB.i],a=sl.a;a.photos=(a.photos||[]).filter(function(p){return p.id!==sl.p.id});phDrop([sl.p.id]);
+    if(sheet&&sheet.draft&&sheet.id===a.id)sheet.draft.photos=a.photos.slice();
+    S.trip.updatedAt=new Date().toISOString();keepNow();
+    ALB.slides.splice(ALB.i,1);ALB.confirm=false;
+    if(!ALB.slides.length)albumClose();else{ALB.i=Math.min(ALB.i,ALB.slides.length-1);albumPaint()}
+    if(sheet)renderSheet();toast('Photo supprimée.');return;
+  }
+},true);
+document.addEventListener('keydown',function(e){if(!ALB)return;if(e.key==='ArrowRight')albumGo(1);else if(e.key==='ArrowLeft')albumGo(-1);else if(e.key==='Escape')albumClose()});
+(function(){var x0=null;document.addEventListener('touchstart',function(e){if(ALB&&e.target.closest('#album'))x0=e.touches[0].clientX},{passive:true});
+  document.addEventListener('touchend',function(e){if(!ALB||x0==null)return;var dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>50)albumGo(dx<0?1:-1)},{passive:true})})();
+function albumCard(t){
+  if(!PWA)return '';
+  var n=phAll(t),over=tripOver(t);
+  if(!n&&!over)return '';
+  var h='<article class="card"><span class="eyebrow">Souvenirs</span><h3>Album photo du voyage</h3>';
+  if(!over)return h+'<p class="note">'+n+' photo(s) dans tes activités. L\'album sera disponible une fois le voyage terminé'+(isDate(t.end||t.start)?', après le '+esc(fRange.format(pd(t.end||t.start))):'')+'.</p></article>';
+  if(!n)return h+'<p class="note">Ajoute des photos dans tes activités (ouvre une activité › Photos) : l\'album se construira tout seul, jour par jour.</p></article>';
+  return h+'<p class="note">'+n+' photo(s) dans '+actSorted(t).length+' activité(s), rangées jour par jour avec le rappel de chaque activité.</p>'+
+    '<div class="acts"><button type="button" class="act" data-album>Voir le diaporama</button><button type="button" class="act" data-albumpdf>'+(ALBPDF?esc(ALBPDF):'Générer l\'album PDF')+'</button></div></article>';
+}
+/* --- album PDF (A4 paysage) --- */
+var ALBPDF='';
+function albumPdf(){
+  if(ALBPDF||!S.trip)return;
+  var t=S.trip,Lb,doc,F,W=841.89,H=595.28,M=36,acts=actSorted(t),total=phAll(t),done=0;
+  var step=function(m){ALBPDF=m;var b=$('[data-albumpdf]');if(b)b.textContent=m};
+  step('Préparation…');
+  setTimeout(function(){
+  Promise.resolve().then(function(){Lb=loadLib('lib-pdflib','PDFLib');return Lb.PDFDocument.create()}).then(function(d){
+    doc=d;doc.setTitle('Album - '+(t.title||'voyage'));doc.setCreator('Carnet de voyage');return pdfFonts(doc,Lb);
+  }).then(function(fo){
+    F=fo;var white=Lb.rgb(1,1,1),dark=Lb.rgb(.06,.08,.1);
+    var txt=function(pg,str,x,y,size,font,color,maxW){var c=clean(str,font);while(maxW&&c.length>3&&font.widthOfTextAtSize(c,size)>maxW)c=c.slice(0,-2);if(maxW&&c!==clean(str,font))c=c.replace(/\s*\S?$/,'')+'...';pg.drawText(c,{x:x,y:y,size:size,font:font,color:color});return font.widthOfTextAtSize(c,size)};
+    /* couverture */
+    return bannerJpeg(t).then(function(b){return doc.embedJpg(b)},function(){return null}).then(function(ban){
+      var pg=doc.addPage([W,H]);pg.drawRectangle({x:0,y:0,width:W,height:H,color:dark});
+      if(ban){var s=Math.max(W/ban.width,H/ban.height),iw=ban.width*s,ih=ban.height*s;pg.drawImage(ban,{x:(W-iw)/2,y:(H-ih)/2,width:iw,height:ih,opacity:.55})}
+      txt(pg,'ALBUM PHOTO',M+10,H/2+70,12,F.b,white);
+      txt(pg,t.title||'Mon voyage',M+10,H/2+20,40,F.b,white,W-2*M-20);
+      var sub=[t.destination,isDate(t.start)?fRange.format(pd(t.start))+(isDate(t.end)&&t.end!==t.start?' - '+fRange.format(pd(t.end)):''):''].filter(Boolean).join('  ·  ');
+      if(sub)txt(pg,sub,M+10,H/2-14,16,F.r,white,W-2*M-20);
+      txt(pg,total+' photos',M+10,M,11,F.r,white);
+    }).then(function(){
+      return acts.reduce(function(p,a){return p.then(function(){
+        var ph=a.photos.slice(),chunks=[];
+        while(ph.length){var k=ph.length===5?3:Math.min(4,ph.length);chunks.push(ph.splice(0,k))}
+        return chunks.reduce(function(p2,ch,ci){return p2.then(function(){
+          return Promise.all(ch.map(function(x){return phBlob(x.id).then(function(b){return b?b.arrayBuffer():null}).then(function(buf){done++;step('Photos '+done+'/'+total+'…');return buf?doc.embedJpg(new Uint8Array(buf)).catch(function(){return null}):null})})).then(function(imgs){
+            var pg=doc.addPage([W,H]),top=H-M;
+            /* rappel de l'activité */
+            var tm=[a.start,a.end].filter(Boolean).join(' - ');
+            txt(pg,[dayTxt(a.date),tm].filter(Boolean).join('  ·  ')+(ci?'  (suite)':''),M,top-10,10,F.r,F.mut);
+            txt(pg,a.title||'Activité',M,top-34,20,F.b,F.ink,W-2*M);
+            var wh=actWhere(a);if(wh)txt(pg,wh,M,top-52,10,F.r,F.mut,W-2*M);
+            pg.drawLine({start:{x:M,y:top-62},end:{x:W-M,y:top-62},thickness:.6,color:F.line});
+            var ay=M,ah=top-74-M,ax=M,aw=W-2*M,g=10,n=imgs.length,cells=[];
+            if(n===1)cells=[[ax,ay,aw,ah]];
+            else if(n===2)cells=[[ax,ay,(aw-g)/2,ah],[ax+(aw+g)/2,ay,(aw-g)/2,ah]];
+            else if(n===3)cells=[[ax,ay,(aw-2*g)/3,ah],[ax+(aw+g)/3,ay,(aw-2*g)/3,ah],[ax+2*(aw+g)/3,ay,(aw-2*g)/3,ah]];
+            else cells=[[ax,ay+(ah+g)/2,(aw-g)/2,(ah-g)/2],[ax+(aw+g)/2,ay+(ah+g)/2,(aw-g)/2,(ah-g)/2],[ax,ay,(aw-g)/2,(ah-g)/2],[ax+(aw+g)/2,ay,(aw-g)/2,(ah-g)/2]];
+            imgs.forEach(function(im,i){var c=cells[i];if(!c)return;if(!im){pg.drawRectangle({x:c[0],y:c[1],width:c[2],height:c[3],color:F.line});return}
+              var s=Math.min(c[2]/im.width,c[3]/im.height),iw=im.width*s,ih=im.height*s;pg.drawImage(im,{x:c[0]+(c[2]-iw)/2,y:c[1]+(c[3]-ih)/2,width:iw,height:ih})});
+          });
+        })},Promise.resolve());
+      })},Promise.resolve());
+    });
+  }).then(function(){step('Finalisation…');return doc.save()}).then(function(bytes){
+    download(new Blob([bytes],{type:'application/pdf'}),'Album - '+safeName(t.title)+'.pdf');
+    ALBPDF='';soft();toast(NATIVE?'Album prêt : choisis où l\'enregistrer ou l\'ouvrir.':'Album PDF téléchargé.');
+  }).catch(function(err){ALBPDF='';S.msg='L\'album n\'a pas pu être créé ('+((err&&err.message)||err)+').';S.msgErr=true;render()});
+  },30);
 }
 
 /* ---------- PDF export (pdf-lib) ---------- */
@@ -4827,6 +5045,8 @@ document.addEventListener('click',function(e){
   if(t.hasAttribute('data-delitem')){
     var k=sheet.kind,it=find(k,sheet.id);
     dropFiles((it&&it.files||[]).map(function(f){return f.id}).concat(sheet.added));
+    if(it&&it.photos)phDrop(it.photos.map(function(p){return p.id}));
+    if(k==='stay'&&PWA)S.trip.activities.forEach(function(a){if(a.stayId===sheet.id&&a.photos)phDrop(a.photos.map(function(p){return p.id}))});
     S.trip[KEY[k]]=list(k).filter(function(x){return x.id!==sheet.id});
     if(k==='stay'){var gone=sheet.id;S.trip.activities=S.trip.activities.filter(function(a){return a.stayId!==gone})}
     sheet=null;renderSheet();changed();return;
@@ -4840,6 +5060,7 @@ document.addEventListener('click',function(e){
   if(t.hasAttribute('data-doreset')){
     if(PWA&&S.trip){
       clearTimeout(idbTimer);var gone=S.trip.uid;
+      S.trip.activities.forEach(function(a){if(a.photos)phDrop(a.photos.map(function(p){return p.id}))});
       idbDel(tripKey(gone));IDX.ids=IDX.ids.filter(function(x){return x.id!==gone});IDX.cur=IDX.ids.length?IDX.ids[0].id:null;idxSave();
       S.trip=null;S.files={};sheet=null;renderSheet();
       if(IDX.cur)openTrip(IDX.cur).catch(function(){render()});else render();
@@ -4879,6 +5100,13 @@ document.addEventListener('change',function(e){
     var s=sheet;
     files.reduce(function(p,file){return p.then(function(){return addFile(file).then(function(f){s.draft.files.push(f);s.added.push(f.id)},function(err){s.err=file.name+' : '+err.message})})},Promise.resolve())
       .then(function(){if(sheet!==s){dropFiles(s.added);return}capture();s.busy='';renderSheet()});
+    return;
+  }
+  if(id==='phfile'){
+    var pfs=[].slice.call(e.target.files||[]);if(!pfs.length)return;
+    capture();sheet.err='';var s3=sheet;
+    var prog=function(m){if(sheet===s3){s3.busy=m;renderSheet()}};
+    addPhotos(s3.id,pfs,prog).then(function(n){if(sheet===s3){s3.busy='';renderSheet()}toast(n+' photo(s) ajoutée(s).')},function(err){if(sheet===s3){s3.busy='';s3.err=err.message;renderSheet()}});
     return;
   }
   if(id==='bannerpick'){
