@@ -3385,7 +3385,7 @@ var BANNERS=[
   ['nuit','Nuit','linear-gradient(160deg,#141e30 0%,#243b55 70%,#5a3d6e 100%)'],
   ['foret','Forêt','linear-gradient(160deg,#1e3a2b 0%,#3f6b47 55%,#a7c18f 100%)']
 ];
-var APP_VERSION='13/11/2026 20:00';
+var APP_VERSION='15/11/2026 23:59';
 /* Android app (Capacitor): files go through the share sheet, updates come as a new APK */
 var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
 var APK_URL='https://github.com/Nagromc86/carnet-de-voyage/releases/latest/download/carnet-de-voyage.apk';
@@ -3707,7 +3707,30 @@ function keepNow(){
   clearTimeout(idbTimer);
   if(!PWA||!S.trip)return Promise.resolve();
   idxTouch(S.trip);
-  return idbSet(tripKey(S.trip.uid),{trip:JSON.parse(JSON.stringify(S.trip)),files:S.files,at:Date.now()}).then(idxSave).catch(function(){});
+  return idbSet(tripKey(S.trip.uid),{trip:JSON.parse(JSON.stringify(S.trip)),files:S.files,at:Date.now()}).then(idxSave).then(function(){pushSteps()}).catch(function(){});
+}
+/* ---------- widget Android « Prochaine étape » : vols, logements et activités à venir de tous les carnets ---------- */
+function stepsOf(t){
+  var L=[],tt=t.title||'';
+  (t.flights||[]).forEach(function(f){if(!f.dep)return;var p=place('flight',f);L.push({type:'flight',kind:'Vol',title:'Vol '+[f.airline,f.number].filter(Boolean).join(' ')+' · '+iata(f.from)+' → '+iata(f.to),start:f.dep,end:f.arr||'',allDay:!tpart(f.dep),where:[f.from,f.terminal?'terminal '+f.terminal:''].filter(Boolean).join(' · '),maps:p?mapsUrl(p):'',trip:tt})});
+  (t.stays||[]).forEach(function(s){var p=place('stay',s),m=p?mapsUrl(p):'';
+    if(s.checkin)L.push({type:'stay',kind:'Arrivée au logement',title:s.name||'Logement',start:s.checkin,end:'',allDay:!tpart(s.checkin),where:s.address||'',maps:m,trip:tt});
+    if(s.checkout)L.push({type:'stay',kind:'Départ du logement',title:s.name||'Logement',start:s.checkout,end:'',allDay:!tpart(s.checkout),where:s.address||'',maps:m,trip:tt})});
+  (t.activities||[]).forEach(function(a){if(!isDate(a.date)||a.stayId)return;var p=place('act',a),st=a.start?a.date+'T'+a.start:a.date;
+    L.push({type:'act',kind:'Activité',title:a.title||'Activité',start:st,end:a.start&&a.end?a.date+'T'+a.end:'',allDay:!a.start,where:[a.place,a.address].filter(Boolean).join(', '),maps:p?mapsUrl(p):'',trip:tt})});
+  return L;
+}
+function pushSteps(){
+  if(!NATIVE||!PWA)return;
+  var cur=S.trip&&S.trip.uid,trips=S.trip?[S.trip]:[];
+  Promise.all((IDX.ids||[]).filter(function(x){return x.id!==cur}).map(function(x){return idbGet(tripKey(x.id)).then(function(c){return c&&c.trip},function(){return null})})).then(function(o){
+    trips=trips.concat(o.filter(Boolean));
+    var now=new Date(Date.now()-864e5).toISOString().slice(0,10),L=[];
+    trips.forEach(function(t){stepsOf(t).forEach(function(x){if(String(x.end||x.start).slice(0,10)>=now)L.push(x)})});
+    L.sort(function(a,b){return a.start<b.start?-1:a.start>b.start?1:0});
+    var j=JSON.stringify(L.slice(0,40));if(j===pushSteps.last)return;pushSteps.last=j;
+    try{window.Capacitor.nativePromise('NextStep','setSteps',{list:j}).catch(function(){})}catch(e){}
+  });
 }
 function loadStore(){
   return idbGet('pwa:index').then(function(ix){
@@ -5153,7 +5176,7 @@ var started=false;
 function start(){if(started)return;started=true;checkReminder();needGeo()}
 if(PWA){
   $('#app').innerHTML='<p class="busy" style="text-align:center;padding:60px 16px">Ouverture du carnet…</p>';
-  loadStore().catch(function(){}).then(function(){render();if(S.trip)start()});
+  loadStore().catch(function(){}).then(function(){render();if(S.trip)start();setTimeout(pushSteps,800)});
   if(NATIVE){
     try{plugin('App').addListener('backButton',function(){
       if(!$('#viewer').hidden)closeViewer();else if(!$('#modal').hidden)closeModal();else if(sheet)closeSheet();

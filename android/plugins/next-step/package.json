@@ -1,0 +1,8 @@
+{
+  "name": "next-step-widget",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Widget Android « Prochaine étape » du Carnet de voyage",
+  "main": "index.js",
+  "capacitor": { "android": { "src": "android" } }
+}
