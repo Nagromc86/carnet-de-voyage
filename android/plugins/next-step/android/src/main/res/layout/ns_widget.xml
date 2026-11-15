@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/ns_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/ns_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="10dp"
+    android:paddingEnd="8dp">
+
+    <TextView
+        android:id="@+id/ns_icon"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="@drawable/ns_badge"
+        android:gravity="center"
+        android:textSize="18sp" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="10dp"
+        android:orientation="vertical">
+
+        <TextView android:id="@+id/ns_kind" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:maxLines="1" android:ellipsize="end" android:textColor="#7FE0D6" android:textSize="9sp" android:textStyle="bold" android:letterSpacing="0.06" />
+        <TextView android:id="@+id/ns_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:maxLines="1" android:ellipsize="end" android:textColor="#FFFFFF" android:textSize="14sp" android:textStyle="bold" />
+        <TextView android:id="@+id/ns_when" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:maxLines="1" android:ellipsize="end" android:textColor="#FFD27A" android:textSize="11sp" />
+        <TextView android:id="@+id/ns_where" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:maxLines="1" android:ellipsize="end" android:textColor="#B3FFFFFF" android:textSize="10sp" />
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/ns_map"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:background="@drawable/ns_mapbg"
+        android:contentDescription="Itinéraire"
+        android:padding="8dp"
+        android:src="@drawable/ns_pin" />
+</LinearLayout>

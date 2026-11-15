@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ns_widget_label">Prochaine étape</string>
+    <string name="ns_widget_desc">Ton prochain vol, logement ou activité, avec l’itinéraire</string>
+</resources>
